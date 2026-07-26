@@ -2,7 +2,8 @@
 """
 小野工作台 - 每日内容自动生成
 每天 8:00 / 14:00(北京时间) 由 GitHub Actions 触发
-流程: 读取用户画像(Gist profile.json) -> 抓取多平台热榜 -> 调 Kimi 生成 -> 写入公开 Gist
+流程: 读取用户画像(Gist profile.json) -> 抓取多平台热榜(含知乎) -> 调 Kimi 生成 -> 写入公开 Gist
+生成: 10条爆款视频 + 10条二创 + 5句英语 + 3条每日灵感
 """
 import os, sys, json, time, re, urllib.request, urllib.error
 
@@ -68,26 +69,27 @@ def fetch_json(url, timeout=12):
         return json.loads(r.read().decode("utf-8"))
 
 def get_hotlist():
-    """多源抓取, 每条带平台标签; 全失败则用兜底"""
+    """多源抓取, 每条带平台标签(含知乎); 全失败则用兜底"""
     items = []
     sources = [
         ("抖音",   "https://api.vvhan.com/api/hotlist/douyinHot"),
         ("B站",    "https://api.vvhan.com/api/hotlist/biliRD"),
         ("小红书", "https://api.vvhan.com/api/hotlist/xhsHot"),
-        ("微博",   "https://api.vvhan.com/api/hotlist/wbHot"),
         ("知乎",   "https://api.vvhan.com/api/hotlist/zhihuHot"),
+        ("微博",   "https://api.vvhan.com/api/hotlist/wbHot"),
     ]
     for platform, url in sources:
         try:
             data = fetch_json(url)
             arr = data.get("data", []) if isinstance(data, dict) else data
-            tag = platform if platform in ("抖音", "B站", "小红书") else "全网"
-            for it in arr[:12]:
+            # 抖音/B站/小红书/知乎 都保留各自平台标签; 微博标为"全网"
+            tag = platform if platform in ("抖音", "B站", "小红书", "知乎") else "全网"
+            for it in arr[:10]:
                 t = it.get("title") or it.get("name") or ""
                 u = it.get("url") or it.get("link") or ""
                 if t:
                     items.append({"platform": tag, "title": t, "url": u})
-            if len(items) >= 18:
+            if len(items) >= 25:
                 break
         except Exception:
             continue
@@ -98,22 +100,25 @@ def get_hotlist():
             {"platform": "抖音",   "title": "英语启蒙从几岁开始最好",           "url": ""},
             {"platform": "B站",    "title": "陪孩子写作业忍不住发火",           "url": ""},
             {"platform": "小红书", "title": "背乘法口诀的快捷方法",             "url": ""},
-            {"platform": "抖音",   "title": "幼小衔接要做好哪些准备",           "url": ""},
-            {"platform": "B站",    "title": "孩子识字慢怎么办",                "url": ""},
+            {"platform": "知乎",   "title": "幼小衔接要做好哪些准备",           "url": ""},
+            {"platform": "知乎",   "title": "孩子识字慢怎么办",                "url": ""},
             {"platform": "小红书", "title": "计算粗心老出错怎么练",             "url": ""},
+            {"platform": "知乎",   "title": "一年级要不要报辅导班",             "url": ""},
+            {"platform": "B站",    "title": "英语启蒙走了弯路怎么补救",          "url": ""},
         ]
-    return items[:20]
+    return items[:25]
 
 # ---------- 调 Kimi 生成 ----------
 def call_kimi(profile_str, hot_text):
-    sys_prompt = profile_str + "\n\n" + """你现在收到一份今日多平台热榜(含抖音/B站/小红书等)。请基于这些热点,结合上述画像,生成三份内容:
+    sys_prompt = profile_str + "\n\n" + """你现在收到一份今日多平台热榜(含抖音/B站/小红书/知乎)。请基于这些热点,结合上述画像,生成四份内容:
 
-1.【爆款视频】从热榜中挑选10条最适合该画像赛道和目标人群的视频,为每条补充关键词、中心内容和爆火原因。platform字段根据热榜来源设为"抖音"、"B站"或"小红书"。
-2.【爆款二创】10条,把热点改编成该博主能直接拍的二创内容,附改编角度、理由和口播文案。
-3.【英语学习】5句日常生活中妈妈教孩子时常用的英语口语,简单实用,适合亲子场景,不要太难。
+1.【爆款视频】从热榜中挑选10条最适合该画像赛道和目标人群的视频,为每条补充关键词、中心内容和爆火原因。platform字段根据热榜来源设为"抖音"、"B站"、"小红书"或"知乎"。
+2.【爆款二创】10条,把热点改编成该博主能直接拍的二创内容。每条需要:title(二创标题)、angle(改编角度)、keywords(2-3个关键词)、reason(为什么值得二创的理由)、script(30-60字口播文案,有活人感)、platform(来源平台:抖音/B站/小红书/知乎)、url(原视频或争议帖链接,如有则填,无则留空)。
+3.【每日灵感】3条创作灵感,每条包含time(时间段如"早晨""午间""晚间")、theme(主题)、content(大致内容描述,2-3句话)。
+4.【英语学习】5句日常生活中妈妈教孩子时常用的英语口语,简单实用,适合亲子场景,不要太难。
 
 严格只返回一个JSON对象,不要任何解释文字、不要markdown代码块标记。JSON结构:
-{"viralVideos":[{"title":"视频标题","keywords":["关键词1","关键词2"],"content":"中心内容(2-3句话概括视频讲了什么)","platform":"抖音","viralReason":"爆火原因(为什么这条能火,1-2句话)"}],"recreations":[{"hot":"原热点标题","angle":"改编角度(怎么改成该博主能拍的内容)","reason":"为什么值得二创","script":"二创文案(30-60字口播稿,有活人感)"}],"englishSentences":[{"en":"English sentence","zh":"中文翻译"}]}"""
+{"viralVideos":[{"title":"视频标题","keywords":["关键词1","关键词2"],"content":"中心内容(2-3句话概括视频讲了什么)","platform":"抖音","viralReason":"爆火原因(为什么这条能火,1-2句话)"}],"recreations":[{"title":"二创标题","angle":"改编角度(怎么改成该博主能拍的内容)","keywords":["关键词1","关键词2"],"reason":"为什么值得二创","script":"二创文案(30-60字口播稿,有活人感)","platform":"抖音","url":""}],"dailyInspirations":[{"time":"早晨","theme":"主题","content":"大致内容描述"}],"englishSentences":[{"en":"English sentence","zh":"中文翻译"}]}"""
 
     user_msg = "今日热榜:\n" + hot_text
     body = json.dumps({
@@ -178,7 +183,7 @@ def main():
     print("  画像: " + profile.get("name", "?") + " / " + profile.get("track", "?"))
 
     # 1. 抓热榜
-    print("[1/4] 抓取热榜...")
+    print("[1/4] 抓取热榜(含知乎)...")
     hot = get_hotlist()
     print("  获取到 {} 条热点".format(len(hot)))
     hot_text = "\n".join("{}[{}] {}".format(i+1, h["platform"], h["title"]) for i, h in enumerate(hot))
@@ -188,13 +193,18 @@ def main():
     result = call_kimi(profile_str, hot_text)
     videos = result.get("viralVideos", [])
     recr = result.get("recreations", [])
+    inspirations = result.get("dailyInspirations", [])
     eng = result.get("englishSentences", [])
-    print("  生成 {} 条爆款视频, {} 条二创, {} 句英语".format(len(videos), len(recr), len(eng)))
+    print("  生成 {} 条爆款视频, {} 条二创, {} 条灵感, {} 句英语".format(
+        len(videos), len(recr), len(inspirations), len(eng)))
 
     # 3. 匹配URL
     for v in videos:
         if not v.get("url"):
             v["url"] = find_url(v.get("title", ""), hot)
+    for r in recr:
+        if not r.get("url"):
+            r["url"] = find_url(r.get("title", ""), hot)
 
     # 4. 写 Gist
     print("[3/4] 写入 Gist...")
@@ -203,6 +213,7 @@ def main():
         "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%S+08:00"),
         "viralVideos": videos,
         "recreations": recr,
+        "dailyInspirations": inspirations,
         "englishSentences": eng
     }
     write_gist(payload)
