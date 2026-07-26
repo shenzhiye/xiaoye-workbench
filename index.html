@@ -95,27 +95,27 @@ label{font-size:12.5px;color:var(--muted);font-weight:600;display:block;margin:8
 .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;border-radius:18px 18px 0 0}
 .sheet-head h3{margin:0;font-size:15px}
 .sheet-body{padding:16px}
-.switch{width:42px;height:24px;background:var(--line);border-radius:14px;position:relative;cursor:pointer;transition:.2s;flex-shrink:0}
-.switch.on{background:var(--olive)}
-.switch i{position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.2s}
-.switch.on i{left:20px}
 .note{background:var(--olive-ll);border-left:3px solid var(--olive);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--olive-dd);margin:8px 0}
-.steps{counter-reset:s;list-style:none;padding:0;margin:8px 0}
-.steps li{position:relative;padding:7px 0 7px 30px;font-size:12.5px;border-bottom:1px solid var(--olive-ll)}
-.steps li:last-child{border-bottom:none}
-.steps li:before{counter-increment:s;content:counter(s);position:absolute;left:0;top:7px;width:20px;height:20px;background:var(--olive);color:#fff;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700}
-.linkrow{display:flex;align-items:center;gap:8px;background:var(--olive-ll);border-radius:8px;padding:7px 9px;margin:6px 0;font-size:12px;word-break:break-all}
-.linkrow a{color:var(--olive-d);text-decoration:none}
 .fab{position:fixed;right:16px;bottom:24px;width:52px;height:52px;border-radius:50%;background:var(--olive);color:#fff;border:none;font-size:26px;box-shadow:0 4px 14px rgba(59,109,17,.4);cursor:pointer;z-index:30;display:flex;align-items:center;justify-content:center}
 @media(min-width:520px){.fab{right:calc(50% - 240px + 16px)}}
+.plat-tag{display:inline-flex;align-items:center;gap:3px;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+.plat-douyin{background:#000;color:#fff}
+.plat-bili{background:#FB7299;color:#fff}
+.plat-xhs{background:#FF2442;color:#fff}
+.plat-all{background:var(--olive-l);color:var(--olive-dd)}
+.en-card{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--olive-ll)}
+.en-card:last-child{border-bottom:none}
+.en-card .en-text{flex:1}
+.en-card .en-en{font-size:14px;font-weight:600;color:var(--ink)}
+.en-card .en-zh{font-size:12.5px;color:var(--muted);margin-top:2px}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="header">
-    <button class="menu-btn" onclick="toggleDrawer(true)">☰</button>
+    <button class="menu-btn" onclick="toggleDrawer(true)">&#9776;</button>
     <h1 id="pageTitle">每日计划</h1>
-    <button class="icon-btn" onclick="syncData()" title="同步">↻</button>
+    <button class="icon-btn" onclick="syncData()" title="同步">&#8635;</button>
   </header>
 
   <div class="drawer-overlay" id="overlay" onclick="toggleDrawer(false)"></div>
@@ -126,7 +126,7 @@ label{font-size:12.5px;color:var(--muted);font-weight:600;display:block;margin:8
       <div class="sub">教育校园 · 抖音创作台</div>
     </div>
     <nav id="nav"></nav>
-    <div class="foot">小野工作台 v1.0 · 数据存本地</div>
+    <div class="foot">小野工作台 v2.0 · 数据存本地</div>
   </aside>
 
   <main class="main" id="main"></main>
@@ -137,8 +137,8 @@ label{font-size:12.5px;color:var(--muted);font-weight:600;display:block;margin:8
 <div class="toast" id="toast"></div>
 
 <script>
-/* ============ 配置区：你的创作画像 ============ */
-const PROFILE = {
+/* ============ 默认创作画像（可在设置中编辑，同步后生效） ============ */
+const DEFAULT_PROFILE = {
   name:"沈知野", id:"shenzhiye3399",
   platform:"抖音（未来小红书）", track:"教育校园",
   audience:"28-45岁、负责孩子学习与家庭采买的妈妈",
@@ -148,67 +148,70 @@ const PROFILE = {
   keywords:["一年级","数学思维","英语启蒙","陪孩子写作业","背单词","计算","识字","亲子日常","家庭教育"],
   homepage:"https://v.douyin.com/TiKProte9YI/"
 };
-/* 已发布作品（内容复盘预填） */
-const SEED_WORKS = [
-  {title:"630之前，能落地的2周复习计划 不用手忙脚乱", link:"https://v.douyin.com/TH3OoS0x8GU/", text:"期末前两周复习计划，按天拆解，每天该干什么清清楚楚，不用手忙脚乱。"},
-  {title:"背乘法口诀，2周就能整明白 可别用掰手指头的方法", link:"https://v.douyin.com/yPk61YAHY70/", text:"背乘法口诀不要掰手指，分享一套两周背熟的节奏和方法。"},
-  {title:"英语启蒙弯路，我家走了一年半 都是血泪的教训", link:"https://v.douyin.com/CLxHathrIzM/", text:"英语启蒙走过的弯路，一年半的血泪教训，给后来人的避坑提醒。"},
-  {title:"别再用说题模板啦！应用题长到看不明白，很正常", link:"https://v.douyin.com/-N3pnv9hbPc/", text:"应用题读不懂很正常，别再用说题模板，教孩子拆题的方法。"}
-];
-/* 选题灵感占位（未接Gist时展示，接入后由Gist覆盖） */
-const SEED_INSPIRATIONS = [
-  {title:"期末复习：一年级数学易错题清单", tags:["一年级","数学思维"], desc:"把这一学期常错的5类题做成一张清单，告诉妈妈怎么带娃过一遍。"},
-  {title:"英语启蒙：零基础磨耳朵的3个免费资源", tags:["英语启蒙"], desc:"盘点真正好用的免费磨耳朵资源，解决妈妈不知道用什么开始的痛点。"},
-  {title:"陪写作业不发火的3个开关", tags:["陪孩子写作业"], desc:"分享情绪管理小技巧，妈妈亲测有效，亲子关系不崩。"},
-  {title:"背单词不痛苦的滚雪球法", tags:["背单词"], desc:"用艾宾浩斯+游戏化，让孩子主动想背，不是被逼。"},
-  {title:"100以内计算的3个卡点", tags:["计算"], desc:"进退位、凑十破十、连加连减，逐个拆解怎么练。"},
-  {title:"识字从抗拒到主动的小套路", tags:["识字"], desc:"用生活场景+绘本，让识字变成游戏而不是任务。"},
-  {title:"亲子日常：我家晚上的1小时怎么过", tags:["亲子日常"], desc:"展示真实家庭晚间流程，体现有活力、亲子关系好的IP人设。"},
-  {title:"家庭教育口播：别再说‘你怎么这么笨’", tags:["家庭教育"], desc:"口播选题，讲语言暴力对孩子的影响，给替代话术。"},
-  {title:"一年级妈妈最焦虑的3件事", tags:["一年级"], desc:"共情式选题，先说痛点再给解法，完播率高。"},
-  {title:"好物：让写作业效率翻倍的一支笔", tags:["陪孩子写作业","带货"], desc:"软植入学习类好物，为带货变现铺路。"}
+
+/* 每日计划默认任务 */
+const DEFAULT_PLAN_TASKS = ["读书半小时","背单词","保健品","写文稿","陪孩子学习"];
+
+/* 爆款视频占位（未接Gist时展示） */
+const SEED_VIRAL = [
+  {title:"一年级数学期末复习清单",keywords:["一年级","数学","期末"],content:"把这一学期常错的5类题做成清单，告诉妈妈怎么带娃过一遍。",platform:"抖音",viralReason:"痛点精准+可落地，妈妈群体高收藏。"},
+  {title:"英语启蒙零基础磨耳朵3个免费资源",keywords:["英语启蒙","磨耳朵"],content:"盘点真正好用的免费磨耳朵资源，解决妈妈不知道用什么开始的痛点。",platform:"小红书",viralReason:"资源合集类收藏率高，零成本降低门槛。"},
+  {title:"陪写作业不发火的3个开关",keywords:["陪写作业","情绪管理"],content:"分享情绪管理小技巧，妈妈亲测有效，亲子关系不崩。",platform:"抖音",viralReason:"高共鸣+可落地，评论区容易引发讨论。"},
+  {title:"背单词不痛苦的滚雪球法",keywords:["背单词","记忆法"],content:"用艾宾浩斯+游戏化，让孩子主动想背，不是被逼。",platform:"B站",viralReason:"方法论+反常识，完播率高。"},
+  {title:"100以内计算的3个卡点",keywords:["计算","数学思维"],content:"进退位、凑十破十、连加连减，逐个拆解怎么练。",platform:"抖音",viralReason:"垂直干货，搜索长效流量。"}
 ];
 const SEED_RECREATIONS = [
-  {hot:"某条『辅导作业崩溃』热门视频", angle:"反转：把崩溃变成3步平静辅导法", reason:"原视频情绪共鸣强但没解法，你的IP正好补上可落地的解法，粉丝会觉得有用又真实。", script:"开头复刻真实崩溃场景→转折『后来我换了3个开关』→逐步演示→结尾呼应亲子关系好的人设。"},
-  {hot:"『英语启蒙千万别太早』争议帖", angle:"用我家的弯路现身说法，给出『什么时候开始、怎么开始』", reason:"争议选题自带流量，你有走弯路的真实经历，可信度高，比纯观点更有说服力。", script:"开头一句话观点→讲我家一年半弯路→给出判断标准→结尾给免费资源引导关注。"},
-  {hot:"『乘法口诀背不下来』求助热榜", angle:"两周背熟节奏法实操演示", reason:"精准命中你已有爆款方向，搜索流量持续，可做成系列。", script:"钩子『别掰手指了』→展示两周节奏表→家长跟练→结尾送口诀表引导互动。"},
+  {hot:"某条『辅导作业崩溃』热门视频", angle:"反转：把崩溃变成3步平静辅导法", reason:"原视频情绪共鸣强但没解法，你的IP正好补上可落地的解法。", script:"开头复刻真实崩溃场景→转折『后来我换了3个开关』→逐步演示→结尾呼应亲子关系好的人设。"},
+  {hot:"『英语启蒙千万别太早』争议帖", angle:"用我家的弯路现身说法", reason:"争议选题自带流量，你有走弯路的真实经历，可信度高。", script:"开头一句话观点→讲我家一年半弯路→给出判断标准→结尾给免费资源引导关注。"},
+  {hot:"『乘法口诀背不下来』求助热榜", angle:"两周背熟节奏法实操演示", reason:"精准命中你已有爆款方向，搜索流量持续。", script:"钩子『别掰手指了』→展示两周节奏表→家长跟练→结尾送口诀表引导互动。"},
   {hot:"『一年级到底要不要上辅导班』讨论", angle:"妈妈视角的算账+选择框架", reason:"教育决策类选题，妈妈群体最关心，易引发评论和转发。", script:"开头抛问题→3个判断维度→我家怎么选的→结尾『你家呢』引导评论。"},
-  {hot:"『期末复习无从下手』热问", angle:"把复习计划做成日历式清单", reason:"你已有同类爆款，做升级版可二次起量，且便于后续带货文具/计划本。", script:"钩子『别慌，2周够了』→逐天清单→演示怎么用→结尾『评论领清单』。"},
-  {hot:"『识字卡孩子不感兴趣』吐槽", angle:"把识字塞进生活和游戏的小套路", reason:"痛点真实，解法新颖易模仿，适合收藏，推高账号权重。", script:"场景还原→3个游戏化识字法→实操演示→结尾呼应活人感人设。"},
-  {hot:"『写作业磨蹭』共鸣视频", angle:"不吼不叫的3个开关实操", reason:"高共鸣+可落地，强化你『亲子关系好又负责』的IP反差。", script:"复刻磨蹭场景→开关1/2/3演示→效果对比→结尾人设升华。"},
-  {hot:"『磨耳朵到底有没有用』争议", angle:"用我家一年半经历给结论+做法", reason:"争议+真实经历=高完播，强化专业感。", script:"开头结论→弯路复盘→正确做法→结尾给资源。"},
-  {hot:"『计算粗心』求助", angle:"3个卡点定位法，粗心其实是方法问题", reason:"精准垂直，搜索长效流量，建立专业标签。", script:"钩子『不是粗心』→3卡点→每个给一招→结尾互动。"},
-  {hot:"『好物』种草爆款", angle:"学习类好物的真实使用日常", reason:"为带货变现铺路，用真实日常软植入，不硬。", script:"真实使用场景→1个痛点+1个解法→产品自然出现→结尾人设。"}
+  {hot:"『写作业磨蹭』共鸣视频", angle:"不吼不叫的3个开关实操", reason:"高共鸣+可落地，强化你『亲子关系好又负责』的IP反差。", script:"复刻磨蹭场景→开关1/2/3演示→效果对比→结尾人设升华。"}
+];
+const SEED_ENGLISH = [
+  {en:"Let's do our homework together.", zh:"我们一起做作业吧。"},
+  {en:"Time for bed! Sweet dreams.", zh:"该睡觉了！做个好梦。"},
+  {en:"Can you help me set the table?", zh:"你能帮我摆碗筷吗？"},
+  {en:"Great job! I'm so proud of you.", zh:"太棒了！我为你骄傲。"},
+  {en:"Let's read a story before sleep.", zh:"睡前我们读个故事吧。"}
 ];
 
 /* ============ 导航 ============ */
 const NAV=[
-  {id:"plan",name:"每日计划",ic:"✓"},
-  {id:"inspire",name:"选题每日灵感",ic:"💡"},
-  {id:"recreate",name:"爆款热点二创",ic:"🔥"},
-  {id:"review",name:"内容复盘",ic:"📈"},
-  {id:"memo",name:"备忘录",ic:"✎"},
-  {id:"reading",name:"读书",ic:"📖"},
-  {id:"settings",name:"设置",ic:"⚙"}
+  {id:"plan",name:"每日计划",ic:"\u2713"},
+  {id:"viral",name:"爆款视频",ic:"\u{1F525}"},
+  {id:"recreate",name:"爆款热点二创",ic:"\u{1F4A5}"},
+  {id:"english",name:"英语学习",ic:"\u{1F4D6}"},
+  {id:"memo",name:"备忘录",ic:"\u270E"},
+  {id:"reading",name:"读书",ic:"\u{1F4D6}"},
+  {id:"settings",name:"设置",ic:"\u2699"}
 ];
 let currentPage="plan";
 
 /* ============ 数据层 ============ */
 const KEY="xiaoye_data_v1";
 function loadData(){
-  let d={plan:{date:"",items:[]}, memo:[], reading:[], review:[],
+  let d={
+    plan:{date:"",items:[]},
+    planDefaults:DEFAULT_PLAN_TASKS.slice(),
+    memo:[],
+    reading:[],
+    englishProgress:{date:"",checked:[]},
+    profile:Object.assign({},DEFAULT_PROFILE),
     settings:{gistId:"8c01ff2a49e05adee2dec497028cdb8a",gistToken:"",kimiKey:""},
-    content:null, contentAt:0};
-  try{const s=JSON.parse(localStorage.getItem(KEY)||"{}");
+    content:null, contentAt:0
+  };
+  try{
+    const s=JSON.parse(localStorage.getItem(KEY)||"{}");
     if(s.plan)d.plan=s.plan;
+    if(s.planDefaults)d.planDefaults=s.planDefaults;
     if(s.memo)d.memo=s.memo;
     if(s.reading)d.reading=s.reading;
-    if(s.review)d.review=s.review;
+    if(s.englishProgress)d.englishProgress=s.englishProgress;
+    if(s.profile)d.profile=Object.assign(d.profile,s.profile);
     if(s.settings)d.settings=Object.assign(d.settings,s.settings);
     if(s.content)d.content=s.content;
     if(s.contentAt)d.contentAt=s.contentAt;
   }catch(e){}
-  if(!d.review.length)d.review=SEED_WORKS.map(w=>({id:rid(),...w,note:""}));
   if(!d.memo.length)d.memo=Array.from({length:5},()=>({id:rid(),text:"",done:false}));
   return d;
 }
@@ -229,24 +232,28 @@ function go(id){
   renderNav();
   toggleDrawer(false);
   render();
-  document.getElementById("fab").style.display = (id==="plan"||id==="memo"||id==="reading"||id==="review")?"flex":"none";
+  document.getElementById("fab").style.display=(id==="plan"||id==="memo"||id==="reading")?"flex":"none";
 }
 function render(){
   const main=document.getElementById("main");
   if(currentPage==="plan")main.innerHTML=renderPlan();
-  else if(currentPage==="inspire")main.innerHTML=renderInspire();
+  else if(currentPage==="viral")main.innerHTML=renderViral();
   else if(currentPage==="recreate")main.innerHTML=renderRecreate();
-  else if(currentPage==="review")main.innerHTML=renderReview();
+  else if(currentPage==="english")main.innerHTML=renderEnglish();
   else if(currentPage==="memo")main.innerHTML=renderMemo();
   else if(currentPage==="reading")main.innerHTML=renderReading();
   else if(currentPage==="settings")main.innerHTML=renderSettings();
   main.className="main";
 }
 function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function val(id){return (document.getElementById(id)||{}).value||"";}
 
-/* ============ 每日计划 ============ */
+/* ============ 每日计划（固定5项 + 可增删） ============ */
 function ensurePlanToday(){
-  if(DATA.plan.date!==todayStr()){DATA.plan={date:todayStr(),items:[]};saveData();}
+  if(DATA.plan.date!==todayStr()){
+    DATA.plan={date:todayStr(),items:DATA.planDefaults.map(t=>({text:t,done:false}))};
+    saveData();
+  }
 }
 function renderPlan(){
   ensurePlanToday();
@@ -259,14 +266,14 @@ function renderPlan(){
       <span class="badge">${done}/${items.length}</span>
     </div>
     <div class="progress"><i style="width:${pct}%"></i></div>
-    <div class="mini">${pct}% 完成 · 勾选自动更新进度</div>
+    <div class="mini">${pct}% 完成 · 每天自动填入默认任务</div>
   </div>`;
-  if(!items.length)h+=`<div class="empty"><div class="big">✓</div>今天还没安排，点右下角＋添加第一条</div>`;
+  if(!items.length)h+=`<div class="empty"><div class="big">\u2713</div>今天还没安排，点右下角＋添加</div>`;
   items.forEach((it,i)=>{
     h+=`<div class="card task ${it.done?'done':''}" style="margin-bottom:8px">
-      <div class="checkbox ${it.done?'on':''}" onclick="togglePlan(${i})">${it.done?'✓':''}</div>
+      <div class="checkbox ${it.done?'on':''}" onclick="togglePlan(${i})">${it.done?'\u2713':''}</div>
       <div class="txt">${esc(it.text)}</div>
-      <div class="del" onclick="delPlan(${i})">×</div>
+      <div class="del" onclick="delPlan(${i})">\u00D7</div>
     </div>`;
   });
   return h;
@@ -285,42 +292,54 @@ function onFab(){
     <button class="btn btn-primary btn-block" style="margin-top:14px" onclick="addMemo()">添加</button>
   `);
   else if(currentPage==="reading")openSheet("添加在读图书",renderReadingForm());
-  else if(currentPage==="review")openSheet("添加作品到复盘",renderReviewForm());
 }
 function addPlan(){const v=document.getElementById("t1").value.trim();if(!v)return;ensurePlanToday();DATA.plan.items.push({text:v,done:false});saveData();closeSheet();render();toast("已添加");}
 
-/* ============ 选题灵感 ============ */
-function getInspirations(){
-  if(DATA.content&&DATA.content.inspirations&&DATA.content.inspirations.length)return DATA.content.inspirations;
-  return SEED_INSPIRATIONS;
+/* ============ 爆款视频 ============ */
+function getViralVideos(){
+  if(DATA.content&&DATA.content.viralVideos&&DATA.content.viralVideos.length)return DATA.content.viralVideos;
+  return SEED_VIRAL;
 }
-function getRecreations(){
-  if(DATA.content&&DATA.content.recreations&&DATA.content.recreations.length)return DATA.content.recreations;
-  return SEED_RECREATIONS;
-}
-function renderInspire(){
-  const list=getInspirations();
+function renderViral(){
+  const list=getViralVideos();
   const upd=DATA.contentAt?new Date(DATA.contentAt).toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):"本地示例";
   let h=`<div class="card" style="display:flex;justify-content:space-between;align-items:center">
-    <div><h3 style="margin:0">每日选题灵感</h3><div class="mini">更新：${upd} · 共${list.length}条</div></div>
+    <div><h3 style="margin:0">爆款视频</h3><div class="mini">更新：${upd} · 共${list.length}条 · 每天8:00/14:00自动更新</div></div>
     <button class="btn btn-ghost btn-sm" onclick="fetchContent(true)">刷新</button>
   </div>`;
   list.forEach((it,i)=>{
+    const ptag=getPlatTag(it.platform);
     h+=`<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <h3 style="margin:0">${i+1}. ${esc(it.title)}</h3>
-        <span class="badge">${(it.tags&&it.tags[0])||'选题'}</span>
+        <h3 style="margin:0;flex:1">${i+1}. ${esc(it.title)}</h3>
+        <span class="plat-tag ${ptag.cls}">${esc(it.platform||'全网')}</span>
       </div>
-      <div style="margin:4px 0">${(it.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>
-      <div style="font-size:13px;color:#3a3f30;margin-top:6px">${esc(it.desc)}</div>
+      <div style="margin:4px 0">${(it.keywords||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>
+      <div style="font-size:13px;color:#3a3f30;margin-top:6px"><b>中心内容：</b>${esc(it.content)}</div>
+      <div class="note" style="margin:8px 0"><b>爆火原因：</b>${esc(it.viralReason)}</div>
       <div class="platform-btns">
-        <button class="btn p-douyin" onclick="launch('douyin',\`${(it.title||'').replace(/`/g,'')}\`)">抖音</button>
-        <button class="btn p-bili" onclick="launch('bilibili',\`${(it.title||'').replace(/`/g,'')}\`)">B站</button>
-        <button class="btn p-xhs" onclick="launch('xhs',\`${(it.title||'').replace(/`/g,'')}\`)">小红书</button>
+        <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.title||'').replace(/`/g,'')}\`)">查看原视频</button>
       </div>
     </div>`;
   });
   return h;
+}
+function getPlatTag(p){
+  p=(p||"").trim();
+  if(p==="抖音")return{cls:"plat-douyin",btnCls:"p-douyin"};
+  if(p==="B站")return{cls:"plat-bili",btnCls:"p-bili"};
+  if(p==="小红书")return{cls:"plat-xhs",btnCls:"p-xhs"};
+  return{cls:"plat-all",btnCls:"p-douyin"};
+}
+function launchViral(platform,title){
+  const m={"抖音":"douyin","B站":"bilibili","小红书":"xhs"};
+  launch(m[platform]||"douyin",title);
+}
+
+/* ============ 爆款热点二创 ============ */
+function getRecreations(){
+  if(DATA.content&&DATA.content.recreations&&DATA.content.recreations.length)return DATA.content.recreations;
+  return SEED_RECREATIONS;
 }
 function renderRecreate(){
   const list=getRecreations();
@@ -345,104 +364,55 @@ function renderRecreate(){
   return h;
 }
 
-/* ============ 内容复盘 ============ */
-function renderReview(){
-  let h=`<div class="card">
-    <h3>内容复盘</h3>
-    <div class="mini">粘贴作品链接+文案，一键生成复盘提问，复制到 Kimi 即可拿到优化建议。</div>
-    <div class="note" style="margin-top:8px"><b>为什么这样？</b>抖音短链在工作台里读不到视频字幕，所以需要你顺手贴一段标题/文案。AI 分析由你的 Kimi 会员完成，不消耗额外额度。</div>
+/* ============ 英语学习 ============ */
+function getEnglish(){
+  if(DATA.content&&DATA.content.englishSentences&&DATA.content.englishSentences.length)return DATA.content.englishSentences;
+  return SEED_ENGLISH;
+}
+function ensureEnglishProgress(){
+  const list=getEnglish();
+  if(DATA.englishProgress.date!==todayStr()){
+    DATA.englishProgress={date:todayStr(),checked:Array(list.length).fill(false)};
+    saveData();
+  }
+  if(DATA.englishProgress.checked.length!==list.length){
+    DATA.englishProgress.checked=Array(list.length).fill(false);
+    saveData();
+  }
+}
+function renderEnglish(){
+  const list=getEnglish();
+  ensureEnglishProgress();
+  const upd=DATA.contentAt?new Date(DATA.contentAt).toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):"本地示例";
+  const learned=DATA.englishProgress.checked.filter(c=>c).length;
+  let h=`<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+    <div><h3 style="margin:0">英语学习</h3><div class="mini">更新：${upd} · 每天5句日常口语 · 已学${learned}/${list.length}</div></div>
+    <button class="btn btn-ghost btn-sm" onclick="fetchContent(true)">刷新</button>
   </div>`;
-  if(!DATA.review.length)h+=`<div class="empty"><div class="big">📈</div>还没有作品，点右下角＋添加</div>`;
-  DATA.review.forEach((w,i)=>{
-    const kw=(w.title||w.text||"教育 校园 一年级").split(/[\s,，。、！]/).filter(Boolean).slice(0,3).join(" ");
+  list.forEach((s,i)=>{
+    const checked=DATA.englishProgress.checked[i];
     h+=`<div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <h3 style="margin:0;flex:1">${i+1}. ${esc(w.title||"未命名作品")}</h3>
-        <span class="del" onclick="delReview(${i})">×</span>
-      </div>
-      ${w.text?`<div style="font-size:12.5px;color:#3a3f30;margin:6px 0">${esc(w.text)}</div>`:""}
-      <div class="linkrow">🔗 <a href="${esc(w.link)}" target="_blank">${esc(w.link)}</a></div>
-      ${w.note?`<div class="mini" style="margin-top:6px">备注：${esc(w.note)}</div>`:""}
-      <div class="platform-btns">
-        <button class="btn btn-primary btn-sm" onclick="copyReviewPrompt(${i})">复制复盘提问</button>
-        <button class="btn p-douyin btn-sm" onclick="launch('douyin',\`${(w.title||'').replace(/`/g,'')}\`)">搜同款</button>
-        <button class="btn btn-line btn-sm" onclick="openReviewEdit(${i})">编辑</button>
+      <div class="en-card">
+        <div class="checkbox ${checked?'on':''}" onclick="toggleEnglish(${i})">${checked?'\u2713':''}</div>
+        <div class="en-text">
+          <div class="en-en">${esc(s.en)}</div>
+          <div class="en-zh">${esc(s.zh)}</div>
+        </div>
       </div>
     </div>`;
   });
   return h;
 }
-function renderReviewForm(){
-  return `<label>作品链接</label>
-  <input id="r_link" placeholder="https://v.douyin.com/xxxxx">
-  <label>作品标题</label>
-  <input id="r_title" placeholder="一句话标题">
-  <label>文案 / 字幕（建议贴一段，AI分析更准）</label>
-  <textarea id="r_text" rows="3" placeholder="把视频开头钩子或口播文案贴一段"></textarea>
-  <label>备注（选填）</label>
-  <input id="r_note" placeholder="自己想记的点">
-  <button class="btn btn-primary btn-block" style="margin-top:14px" onclick="addReview()">添加</button>`;
-}
-function addReview(){
-  const w={id:rid(),link:val("r_link"),title:val("r_title"),text:val("r_text"),note:val("r_note")};
-  if(!w.link&&!w.title){toast("至少填标题或链接");return;}
-  DATA.review.unshift(w);saveData();closeSheet();render();toast("已添加");
-}
-function val(id){return (document.getElementById(id)||{}).value||"";}
-function delReview(i){DATA.review.splice(i,1);saveData();render();}
-function openReviewEdit(i){
-  const w=DATA.review[i];
-  openSheet("编辑作品",`
-  <label>作品链接</label><input id="e_link" value="${esc(w.link)}">
-  <label>作品标题</label><input id="e_title" value="${esc(w.title)}">
-  <label>文案 / 字幕</label><textarea id="e_text" rows="3">${esc(w.text)}</textarea>
-  <label>备注</label><input id="e_note" value="${esc(w.note)}">
-  <button class="btn btn-primary btn-block" style="margin-top:14px" onclick="saveReviewEdit(${i})">保存</button>`);
-}
-function saveReviewEdit(i){
-  DATA.review[i]={...DATA.review[i],link:val("e_link"),title:val("e_title"),text:val("e_text"),note:val("e_note")};
-  saveData();closeSheet();render();toast("已保存");
-}
-function copyReviewPrompt(i){
-  const w=DATA.review[i];
-  const p=`你是我的短视频运营教练，请基于以下信息给我做一条作品的深度复盘。
-
-【我的IP画像】
-- 博主：${PROFILE.name}（抖音 ${PROFILE.id}），赛道：${PROFILE.track}
-- 人设：${PROFILE.role}
-- 风格：${PROFILE.style}
-- 目标人群：${PROFILE.audience}
-- 关键词：${PROFILE.keywords.join("、")}
-- 变现方向：${PROFILE.monetization}
-
-【待复盘作品】
-- 标题：${w.title||"（无）"}
-- 链接：${w.link||"（无）"}
-- 文案/字幕：${w.text||"（无）"}
-- 我的备注：${w.note||"（无）"}
-
-请从【钩子吸引力】【完播率】【互动引导】【人设一致性】【转化与带货潜力】五个维度，给出：
-1. 三个做得好的亮点；
-2. 三个最该改的问题（说清原因）；
-3. 三条可立刻落地的优化建议；
-4. 一个可以直接拍的后续选题（含标题和开头钩子）。
-用表格+要点，语言直接、不绕弯。`;
-  copyText(p,"复盘提问已复制，去 Kimi 粘贴提问");
-}
-function copyText(t,msg){
-  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>toast(msg)).catch(()=>fallbackCopy(t,msg));}
-  else fallbackCopy(t,msg);
-}
-function fallbackCopy(t,msg){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast(msg);}catch(e){toast("复制失败，请手动复制")}document.body.removeChild(ta);}
+function toggleEnglish(i){DATA.englishProgress.checked[i]=!DATA.englishProgress.checked[i];saveData();render();}
 
 /* ============ 备忘录 ============ */
 function renderMemo(){
   let h=`<div class="card"><h3>备忘录</h3><div class="mini">默认5行，可勾选、可加行</div></div>`;
   DATA.memo.forEach((m,i)=>{
     h+=`<div class="card task ${m.done?'done':''}" style="margin-bottom:8px">
-      <div class="checkbox ${m.done?'on':''}" onclick="toggleMemo(${i})">${m.done?'✓':''}</div>
+      <div class="checkbox ${m.done?'on':''}" onclick="toggleMemo(${i})">${m.done?'\u2713':''}</div>
       <div class="txt">${esc(m.text)||'<span style="color:#aaa">空行</span>'}</div>
-      <div class="del" onclick="delMemo(${i})">×</div>
+      <div class="del" onclick="delMemo(${i})">\u00D7</div>
     </div>`;
   });
   return h;
@@ -454,7 +424,7 @@ function addMemo(){const v=document.getElementById("m1").value.trim();DATA.memo.
 /* ============ 读书 ============ */
 function renderReading(){
   let h=`<div class="card"><h3>读书</h3><div class="mini">记录在读进度，自动算已读天数</div></div>`;
-  if(!DATA.reading.length)h+=`<div class="empty"><div class="big">📖</div>还没有在读书，点右下角＋添加</div>`;
+  if(!DATA.reading.length)h+=`<div class="empty"><div class="big">\u{1F4D6}</div>还没有在读书，点右下角＋添加</div>`;
   DATA.reading.forEach((b,i)=>{
     const pct=b.total?Math.min(100,Math.round(b.current/b.total*100)):0;
     const today=new Date();today.setHours(0,0,0,0);
@@ -464,7 +434,7 @@ function renderReading(){
     h+=`<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <h3 style="margin:0;flex:1">${esc(b.name)}</h3>
-        <span class="del" onclick="delReading(${i})">×</span>
+        <span class="del" onclick="delReading(${i})">\u00D7</span>
       </div>
       <div class="kv"><span>总页数</span><span class="v">${b.total}</span></div>
       <div class="kv"><span>在读页</span><span class="v">${b.current}（${pct}%）</span></div>
@@ -505,33 +475,57 @@ function delReading(i){DATA.reading.splice(i,1);saveData();render();}
 /* ============ 设置 ============ */
 function renderSettings(){
   const s=DATA.settings;
-  return `<div class="card">
-    <h3>创作画像（已内置）</h3>
-    <div class="kv"><span>博主</span><span class="v">${PROFILE.name} · ${PROFILE.id}</span></div>
-    <div class="kv"><span>赛道</span><span class="v">${PROFILE.track}</span></div>
-    <div class="kv"><span>人群</span><span class="v">${PROFILE.audience}</span></div>
-    <div class="kv"><span>变现</span><span class="v">${PROFILE.monetization}</span></div>
-    <div style="margin-top:6px">${PROFILE.keywords.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
-    <div class="note" style="margin-top:8px">这套画像会作为AI生成选题/二创和复盘提问的"系统设定"。如需调整，告诉我即可。</div>
+  const p=DATA.profile;
+  return `
+  <div class="card">
+    <h3>创作画像（可编辑）</h3>
+    <div class="note">修改后点「保存画像」，再点右上角同步按钮。下次自动生成（8:00/14:00）将使用新画像。</div>
+    <label>博主名称</label>
+    <input id="p_name" value="${esc(p.name)}">
+    <label>账号ID</label>
+    <input id="p_id" value="${esc(p.id)}">
+    <label>平台</label>
+    <input id="p_platform" value="${esc(p.platform)}">
+    <label>赛道</label>
+    <input id="p_track" value="${esc(p.track)}">
+    <label>目标人群</label>
+    <textarea id="p_audience" rows="2">${esc(p.audience)}</textarea>
+    <label>IP人设</label>
+    <textarea id="p_role" rows="3">${esc(p.role)}</textarea>
+    <label>内容风格</label>
+    <textarea id="p_style" rows="2">${esc(p.style)}</textarea>
+    <label>变现模式</label>
+    <input id="p_monetization" value="${esc(p.monetization)}">
+    <label>关键词（逗号分隔）</label>
+    <input id="p_keywords" value="${esc((p.keywords||[]).join('，'))}" placeholder="一年级，数学思维，英语启蒙">
+    <label>主页链接</label>
+    <input id="p_homepage" value="${esc(p.homepage||'')}">
+    <button class="btn btn-primary btn-block" style="margin-top:14px" onclick="saveProfile()">保存画像</button>
+  </div>
+  <div class="card">
+    <h3>每日默认任务</h3>
+    <div class="mini">每天自动填入这些任务，可增删改</div>
+    <div id="planDefaultsList" style="margin-top:8px"></div>
+    <button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" onclick="addPlanDefaultInput()">+ 添加默认任务</button>
+    <button class="btn btn-primary btn-block" style="margin-top:8px" onclick="savePlanDefaults()">保存默认任务</button>
   </div>
   <div class="card">
     <h3>数据同步（Gist）</h3>
-    <label>Gist ID（选题/二创内容源）</label>
+    <label>Gist ID（内容源）</label>
     <input id="s_gist" value="${esc(s.gistId)}" placeholder="形如 abc123def456">
-    <label>同步 Token（个人数据同步，仅存本地）</label>
-    <input id="s_token" value="${esc(s.gistToken)}" placeholder="ghp_xxxxxx（用于手机↔电脑同步）">
+    <label>同步 Token（个人数据+画像同步）</label>
+    <input id="s_token" value="${esc(s.gistToken)}" placeholder="ghp_xxxxxx">
     <div class="row" style="margin-top:12px">
       <button class="btn btn-primary" onclick="saveSettings()">保存</button>
       <button class="btn btn-ghost" onclick="fetchContent(true)">拉取内容</button>
     </div>
-    <div class="note" style="margin-top:8px">Gist ID 填好后，选题/二创会自动读取云端每天8:00/14:00生成的内容。Token 用于把你的计划/备忘/读书/复盘同步到同一 Gist，实现手机电脑互通。</div>
+    <div class="note" style="margin-top:8px">同步会上传：计划、备忘、读书、默认任务、创作画像。下次自动生成将读取你的画像。</div>
   </div>
   <div class="card">
-    <h3>内容复盘自动分析（可选）</h3>
-    <label>Kimi API Key（粘贴作品后自动给建议，选填）</label>
-    <input id="s_kimi" value="${esc(s.kimiKey)}" placeholder="sk-xxxx（在 platform.moonshot.cn 获取）">
-    <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="saveSettings()">保存</button>
-    <div class="note" style="margin-top:8px">不填也能用：用"复制复盘提问 → 去 Kimi 粘贴"。填了之后，后续可升级为"粘贴即自动分析"。</div>
+    <h3>当前状态</h3>
+    <div class="kv"><span>GitHub 仓库</span><span class="v">shenzhiye/xiaoye-workbench</span></div>
+    <div class="kv"><span>自动生成</span><span class="v">每天 8:00 / 14:00</span></div>
+    <div class="kv"><span>在线网址</span><span class="v" style="font-size:11px">shenzhiye.github.io/xiaoye-workbench</span></div>
   </div>
   <div class="card">
     <h3>数据管理</h3>
@@ -541,25 +535,34 @@ function renderSettings(){
       <input type="file" id="imp" accept="application/json" style="display:none" onchange="importData(this)">
     </div>
     <button class="btn btn-danger btn-block" style="margin-top:10px" onclick="if(confirm('确定清空所有本地数据？')){localStorage.removeItem(KEY);DATA=loadData();render();toast('已清空')}">清空本地数据</button>
-  </div>
-  <div class="card">
-    <h3>配置指引（点开看）</h3>
-    <div class="sec-title" style="margin:6px 0"><h2 style="font-size:13px">① 拿 Kimi API Key</h2></div>
-    <ol class="steps">
-      <li>打开 platform.moonshot.cn 用 Kimi 账号登录</li>
-      <li>左侧"API Key 管理"→新建一个 Key，复制</li>
-      <li>在上面"Kimi API Key"框粘贴保存（定时生成也用它）</li>
-    </ol>
-    <div class="sec-title" style="margin:6px 0"><h2 style="font-size:13px">② 注册 GitHub + 建 Gist</h2></div>
-    <ol class="steps">
-      <li>github.com/signup 注册账号（5分钟）</li>
-      <li>告诉我你的 GitHub 用户名，我带你建仓库和 Gist、配定时任务</li>
-      <li>把 Gist ID 填到上面，选题/二创就接通了</li>
-    </ol>
-    <div class="note">这两步做好后，"每天8:00/14:00自动抓热榜+AI生成"就全自动了。我会在你注册后把定时任务文件给你。</div>
   </div>`;
 }
-function saveSettings(){DATA.settings.gistId=val("s_gist").trim();DATA.settings.gistToken=val("s_token").trim();DATA.settings.kimiKey=val("s_kimi").trim();saveData();toast("已保存");}
+function saveProfile(){
+  const kw=val("p_keywords").split(/[,，]/).map(s=>s.trim()).filter(Boolean);
+  DATA.profile={
+    name:val("p_name").trim(),id:val("p_id").trim(),
+    platform:val("p_platform").trim(),track:val("p_track").trim(),
+    audience:val("p_audience").trim(),role:val("p_role").trim(),
+    style:val("p_style").trim(),monetization:val("p_monetization").trim(),
+    keywords:kw,homepage:val("p_homepage").trim()
+  };
+  saveData();toast("画像已保存，记得点右上角同步");
+}
+function renderPlanDefaultsList(){
+  const el=document.getElementById("planDefaultsList");
+  if(!el)return;
+  el.innerHTML=DATA.planDefaults.map((t,i)=>
+    `<div class="task" style="padding:6px 0"><input value="${esc(t)}" id="pd_${i}" style="flex:1;font-size:13px;padding:7px 10px"><span class="del" onclick="delPlanDefault(${i})">\u00D7</span></div>`
+  ).join("");
+}
+function addPlanDefaultInput(){DATA.planDefaults.push("新任务");renderPlanDefaultsList();}
+function delPlanDefault(i){DATA.planDefaults.splice(i,1);renderPlanDefaultsList();}
+function savePlanDefaults(){
+  DATA.planDefaults=DATA.planDefaults.map((t,i)=>val("pd_"+i).trim()||t).filter(Boolean);
+  if(!DATA.planDefaults.length)DATA.planDefaults=DEFAULT_PLAN_TASKS.slice();
+  saveData();toast("默认任务已保存");
+}
+function saveSettings(){DATA.settings.gistId=val("s_gist").trim();DATA.settings.gistToken=val("s_token").trim();saveData();toast("已保存");}
 function exportData(){const blob=new Blob([JSON.stringify(DATA,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="xiaoye-backup-"+todayStr()+".json";a.click();toast("已导出备份");}
 function importData(f){const r=new FileReader();r.onload=()=>{try{const s=JSON.parse(r.result);Object.assign(DATA,s);saveData();render();toast("已导入");}catch(e){toast("文件格式错误")}};r.readAsText(f.files[0]);}
 
@@ -578,36 +581,22 @@ async function fetchContent(show){
     if(!json){if(show)toast("Gist里没找到 content.json");return;}
     const obj=JSON.parse(json);
     DATA.content=obj;DATA.contentAt=Date.now();saveData();
-    render();toast("已更新 · "+(obj.inspirations?obj.inspirations.length:0)+"选题");
+    render();toast("已更新 · "+(obj.viralVideos?obj.viralVideos.length:0)+"条爆款视频");
   }catch(e){if(show)toast("拉取失败："+e.message);}
 }
 async function syncData(){
   const s=DATA.settings;
-  if(!s.gistId.trim()||!s.gistToken.trim()){toast("同步需填 Gist ID + Token");return;}
+  if(!s.gistId.trim()||!s.gistToken.trim()){toast("同步需填 Gist ID + Token（在设置里）");return;}
   toast("上传同步中…");
-  const payload={files:{"data.json":{content:JSON.stringify({plan:DATA.plan,memo:DATA.memo,reading:DATA.reading,review:DATA.review},null,2)}}};
+  const payload={files:{
+    "data.json":{content:JSON.stringify({plan:DATA.plan,memo:DATA.memo,reading:DATA.reading,planDefaults:DATA.planDefaults},null,2)},
+    "profile.json":{content:JSON.stringify(DATA.profile,null,2)}
+  }};
   try{
     const r=await fetch("https://api.github.com/gists/"+s.gistId.trim(),{method:"PATCH",headers:{'Authorization':'Bearer '+s.gistToken.trim(),'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!r.ok)throw new Error(r.status);
-    toast("已同步到云端 ✓");
+    toast("已同步到云端（含画像） ✓");
   }catch(e){toast("同步失败："+e.message);}
-}
-async function pullSync(){
-  const s=DATA.settings;
-  if(!s.gistId.trim()){toast("先填 Gist ID");return;}
-  try{
-    const r=await fetch("https://api.github.com/gists/"+s.gistId.trim(),{headers:{'Accept':'application/vnd.github+json'}});
-    if(!r.ok)throw new Error(r.status);
-    const g=await r.json();
-    const f=g.files['data.json'];
-    if(!f){toast("云端暂无个人数据");return;}
-    const obj=JSON.parse(f.content);
-    if(obj.plan)DATA.plan=obj.plan;
-    if(obj.memo)DATA.memo=obj.memo;
-    if(obj.reading)DATA.reading=obj.reading;
-    if(obj.review)DATA.review=obj.review;
-    saveData();render();toast("已从云端拉取 ✓");
-  }catch(e){toast("拉取失败："+e.message);}
 }
 
 /* ============ 深链唤起 ============ */
@@ -636,6 +625,9 @@ function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t
 /* ============ 启动 ============ */
 renderNav();go("plan");
 if(DATA.settings.gistId)fetchContent(false);
+/* 设置页渲染后补渲染默认任务列表 */
+const origRender=render;
+render=function(){origRender();if(currentPage==="settings")renderPlanDefaultsList();};
 </script>
 </body>
 </html>
