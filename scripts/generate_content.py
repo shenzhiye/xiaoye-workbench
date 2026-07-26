@@ -3,7 +3,7 @@
 小野工作台 - 每日内容自动生成
 每天 8:00 / 14:00(北京时间) 由 GitHub Actions 触发
 流程: 读取用户画像(Gist profile.json) -> 抓取多平台热榜(含知乎) -> 调 Kimi 生成 -> 写入公开 Gist
-生成: 10条爆款视频 + 10条二创 + 5句英语 + 3条每日灵感
+生成: 10条爆款视频 + 10条二创 + 5句英语 + 3条每日灵感 + 20条AI资讯(大白话)
 """
 import os, sys, json, time, re, urllib.request, urllib.error
 
@@ -142,6 +142,55 @@ def call_kimi(profile_str, hot_text):
     content = re.sub(r"\s*```$", "", content.strip())
     return json.loads(content)
 
+# ---------- 生成AI资讯(独立Kimi调用) ----------
+def generate_ai_news(hot):
+    """生成20条AI重要新闻, 翻译成大白话。hot为已抓取的热榜列表(用于参考)。"""
+    ai_kw = ["AI", "人工智能", "GPT", "大模型", "ChatGPT", "Claude", "Gemini",
+             "OpenAI", "机器学习", "深度学习", "AGI", "Sora", "智能", "算法",
+             "机器人", "自动驾驶", "芯片", "英伟达", "NVIDIA", "百度", "文心",
+             "通义", "Kimi", "月之暗面", "豆包", "DeepSeek", "算力", "开源",
+             "Llama", "Anthropic", "科技", "数字人", "AIGC", "智能体", "Agent"]
+    ai_ref = []
+    for h in hot:
+        t = h.get("title", "")
+        if any(k.lower() in t.lower() for k in ai_kw):
+            ai_ref.append("[{}]{}".format(h.get("platform", ""), t))
+    ref_text = "\n".join(ai_ref[:15]) if ai_ref else "(热榜中暂无AI相关内容,请基于近期重要AI动态生成)"
+
+    prompt = """你是AI领域资讯编辑,专门把复杂的AI新闻翻译成普通人(尤其是不懂技术的家长群体)能听懂的大白话。
+
+请生成今天最重要的20条AI相关新闻和动态,覆盖国内外。要求:
+1. title: 新闻标题(简洁有力,10-20字)
+2. plainText: 大白话解释(就像跟朋友聊天一样说清楚这事儿是什么,2-3句话,绝对不要用专业术语)
+3. why: 为什么重要(跟普通人有什么关系,1-2句话)
+
+覆盖方向:大模型更新、AI应用落地、AI政策监管、AI教育、AI与就业、AI伦理等。
+
+参考今日热榜中的AI相关内容(如有):
+""" + ref_text + """
+
+严格只返回一个JSON对象,不要任何解释文字,不要markdown代码块:
+{"aiNews":[{"title":"新闻标题","plainText":"大白话解释","why":"为什么重要"}]}"""
+
+    body = json.dumps({
+        "model": MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 1,
+        "max_tokens": 8000
+    }).encode("utf-8")
+    req = urllib.request.Request(KIMI_URL, data=body, headers={
+        "Authorization": "Bearer " + KIMI_KEY,
+        "Content-Type": "application/json"
+    })
+    print("  调用Kimi生成AI资讯(超时180s)...")
+    with urllib.request.urlopen(req, timeout=180) as r:
+        resp = json.loads(r.read().decode("utf-8"))
+    content = resp["choices"][0]["message"]["content"]
+    content = re.sub(r"^```(?:json)?\s*", "", content.strip())
+    content = re.sub(r"\s*```$", "", content.strip())
+    result = json.loads(content)
+    return result.get("aiNews", [])
+
 # ---------- 匹配URL(从原始热榜数据中查找) ----------
 def find_url(title, hot_items):
     for h in hot_items:
@@ -177,19 +226,19 @@ def main():
         print("ERROR: GIST_ID 未设置"); sys.exit(1)
 
     # 0. 读取画像
-    print("[0/4] 读取用户画像...")
+    print("[0/5] 读取用户画像...")
     profile = read_profile_from_gist()
     profile_str = build_profile_str(profile)
     print("  画像: " + profile.get("name", "?") + " / " + profile.get("track", "?"))
 
     # 1. 抓热榜
-    print("[1/4] 抓取热榜(含知乎)...")
+    print("[1/5] 抓取热榜(含知乎)...")
     hot = get_hotlist()
     print("  获取到 {} 条热点".format(len(hot)))
     hot_text = "\n".join("{}[{}] {}".format(i+1, h["platform"], h["title"]) for i, h in enumerate(hot))
 
-    # 2. 调 Kimi 生成
-    print("[2/4] 调用 Kimi 生成内容...")
+    # 2. 调 Kimi 生成(爆款+二创+灵感+英语)
+    print("[2/5] 调用 Kimi 生成内容...")
     result = call_kimi(profile_str, hot_text)
     videos = result.get("viralVideos", [])
     recr = result.get("recreations", [])
@@ -206,18 +255,24 @@ def main():
         if not r.get("url"):
             r["url"] = find_url(r.get("title", ""), hot)
 
-    # 4. 写 Gist
-    print("[3/4] 写入 Gist...")
+    # 4. 生成AI资讯(独立Kimi调用)
+    print("[3/5] 生成AI资讯(20条,大白话)...")
+    ai_news = generate_ai_news(hot)
+    print("  生成 {} 条AI资讯".format(len(ai_news)))
+
+    # 5. 写 Gist
+    print("[4/5] 写入 Gist...")
     payload = {
         "date": time.strftime("%Y-%m-%d"),
         "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%S+08:00"),
         "viralVideos": videos,
         "recreations": recr,
         "dailyInspirations": inspirations,
-        "englishSentences": eng
+        "englishSentences": eng,
+        "aiNews": ai_news
     }
     write_gist(payload)
-    print("[4/4] === 完成! Gist 已更新 ===")
+    print("[5/5] === 完成! Gist 已更新 ===")
 
 if __name__ == "__main__":
     main()
