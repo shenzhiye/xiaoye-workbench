@@ -290,6 +290,7 @@ function loadData(){
     planDefaults:DEFAULT_PLAN_TASKS.slice(),
     memo:[],
     reading:[],
+    inspirations:[],
     englishProgress:{date:"",checked:[]},
     profile:Object.assign({},DEFAULT_PROFILE),
     settings:{gistId:"8c01ff2a49e05adee2dec497028cdb8a",gistToken:"",kimiKey:""},
@@ -303,6 +304,7 @@ function loadData(){
     if(s.planDefaults&&s.planDefaults.length)d.planDefaults=s.planDefaults;
     if(s.memo)d.memo=s.memo;
     if(s.reading)d.reading=s.reading;
+    if(s.inspirations)d.inspirations=s.inspirations;
     if(s.englishProgress)d.englishProgress=s.englishProgress;
     if(s.profile)d.profile=Object.assign(d.profile,s.profile);
     if(s.settings)d.settings=Object.assign(d.settings,s.settings);
@@ -355,7 +357,7 @@ function go(id){
   renderNav();
   toggleDrawer(false);
   render();
-  document.getElementById("fab").style.display=(id==="plan"||id==="memo"||id==="reading")?"flex":"none";
+  document.getElementById("fab").style.display=(id==="plan"||id==="inspiration"||id==="memo"||id==="reading")?"flex":"none";
 }
 function openSettings(){go("settings");}
 function render(){
@@ -413,6 +415,11 @@ function onFab(){
     <textarea id="t1" rows="2" placeholder="例如：拍一条『2周复习计划』口播"></textarea>
     <button class="btn btn-primary btn-block" style="margin-top:14px" onclick="addPlan()">添加</button>
   `);
+  else if(currentPage==="inspiration")openSheet("记录灵感",`
+    <label>灵感内容</label>
+    <textarea id="insp1" rows="5" placeholder="写下你此刻的灵感、选题念头、拍摄想法..."></textarea>
+    <button class="btn btn-primary btn-block" style="margin-top:14px" onclick="addInspiration()">记录</button>
+  `);
   else if(currentPage==="memo")openSheet("新建备忘",`
     <label>内容</label>
     <textarea id="m1" rows="2"></textarea>
@@ -422,34 +429,46 @@ function onFab(){
 }
 function addPlan(){const v=document.getElementById("t1").value.trim();if(!v)return;ensurePlanToday();DATA.plan.items.push({text:v,done:false});saveData();closeSheet();render();toast("已添加");}
 
-/* ============ 每日灵感 ============ */
-function getInspirations(){
-  if(DATA.content&&DATA.content.dailyInspirations&&DATA.content.dailyInspirations.length)return DATA.content.dailyInspirations;
-  return SEED_INSPIRATIONS;
+/* ============ 每日灵感（手动记录） ============ */
+function fmtInspTime(ts){
+  const t=new Date(ts);
+  const now=new Date();
+  const sameDay=t.toDateString()===now.toDateString();
+  const hh=String(t.getHours()).padStart(2,"0");
+  const mm=String(t.getMinutes()).padStart(2,"0");
+  if(sameDay)return "今天 "+hh+":"+mm;
+  return (t.getMonth()+1)+"月"+t.getDate()+"日 "+hh+":"+mm;
 }
 function renderInspiration(){
-  const list=getInspirations();
-  const upd=DATA.contentAt?new Date(DATA.contentAt).toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):"本地示例";
-  let h=`<div class="card" style="display:flex;justify-content:space-between;align-items:center">
-    <div><h3 style="margin:0">每日灵感</h3><div class="mini">更新：${upd} · 每天8:00/14:00自动更新</div></div>
-    <button class="btn btn-ghost btn-sm" onclick="fetchContent(true)">刷新</button>
+  const list=DATA.inspirations||[];
+  let h=`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div><h3 style="margin:0">每日灵感</h3><div class="mini">记录你自己的创作灵感 · 点右下角＋添加 · 共${list.length}条</div></div>
+    </div>
   </div>`;
+  if(!list.length){
+    h+=`<div class="empty"><div class="big">\u{1F4A1}</div>还没有灵感<br>点右下角 ＋ 记录你的第一个灵感</div>`;
+  }
   list.forEach((it,i)=>{
     h+=`<div class="card">
-      <div class="insp-card">
-        <div class="insp-time">
-          <div class="t-label">${esc(it.time||'')}</div>
-          <div class="t-val">${i+1}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1">
+          <div class="badge" style="margin-bottom:8px">\u{1F552} ${esc(fmtInspTime(it.time))}</div>
+          <div style="font-size:13.5px;line-height:1.65;color:#3a3f30;white-space:pre-wrap;word-break:break-word">${esc(it.content)}</div>
         </div>
-        <div class="insp-body">
-          <div class="insp-theme">${esc(it.theme||'')}</div>
-          <div class="insp-content">${esc(it.content||'')}</div>
-        </div>
+        <span class="del" onclick="delInspiration(${i})" title="删除">\u00D7</span>
       </div>
     </div>`;
   });
   return h;
 }
+function addInspiration(){
+  const v=document.getElementById("insp1").value.trim();
+  if(!v){toast("请输入灵感内容");return;}
+  DATA.inspirations.unshift({id:rid(),time:Date.now(),content:v});
+  saveData();closeSheet();render();toast("灵感已记录");
+}
+function delInspiration(i){DATA.inspirations.splice(i,1);saveData();render();}
 
 /* ============ 爆款视频 ============ */
 function getViralVideos(){
@@ -740,7 +759,7 @@ function renderSettings(){
       <button class="btn btn-primary" onclick="saveSettings()">保存</button>
       <button class="btn btn-ghost" onclick="fetchContent(true)">拉取内容</button>
     </div>
-    <div class="note" style="margin-top:8px">同步内容：计划、备忘、读书、默认任务、创作画像、字体大小、导航排序。下次自动生成将读取你的画像。</div>
+    <div class="note" style="margin-top:8px">同步内容：计划、灵感、备忘、读书、默认任务、创作画像、字体大小、导航排序。下次自动生成将读取你的画像。</div>
   </div>
   <div class="card">
     <h3>当前状态</h3>
@@ -831,6 +850,16 @@ async function syncData(){
       }
       if(cloudData.memo)DATA.memo=cloudData.memo;
       if(cloudData.reading)DATA.reading=cloudData.reading;
+      /* 灵感合并：按id去重，按时间倒序 */
+      if(cloudData.inspirations&&Array.isArray(cloudData.inspirations)){
+        const seen={};
+        const merged=[];
+        [...DATA.inspirations,...cloudData.inspirations].sort((a,b)=>(b.time||0)-(a.time||0)).forEach(it=>{
+          const k=it.id||(it.id=rid());
+          if(!seen[k]){seen[k]=true;merged.push(it);}
+        });
+        DATA.inspirations=merged;
+      }
       if(cloudData.planDefaults)DATA.planDefaults=cloudData.planDefaults;
       if(cloudData.fontSize)DATA.fontSize=cloudData.fontSize;
       if(cloudData.navOrder&&cloudData.navOrder.length)DATA.navOrder=cloudData.navOrder;
@@ -840,12 +869,12 @@ async function syncData(){
     saveData();render();
     /* 3. 上传合并后的本地数据到云端 */
     const payload={files:{
-      "data.json":{content:JSON.stringify({plan:DATA.plan,memo:DATA.memo,reading:DATA.reading,planDefaults:DATA.planDefaults,fontSize:DATA.fontSize,navOrder:DATA.navOrder},null,2)},
+      "data.json":{content:JSON.stringify({plan:DATA.plan,memo:DATA.memo,reading:DATA.reading,inspirations:DATA.inspirations,planDefaults:DATA.planDefaults,fontSize:DATA.fontSize,navOrder:DATA.navOrder},null,2)},
       "profile.json":{content:JSON.stringify(DATA.profile,null,2)}
     }};
     const r=await fetch("https://api.github.com/gists/"+s.gistId.trim(),{method:"PATCH",headers:{'Authorization':'Bearer '+s.gistToken.trim(),'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!r.ok)throw new Error(r.status);
-    toast("双向同步完成 ✓（计划/备忘/读书/画像）");
+    toast("双向同步完成 ✓（计划/灵感/备忘/读书/画像）");
   }catch(e){toast("同步失败："+e.message);}
 }
 
