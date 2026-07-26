@@ -18,12 +18,13 @@
   --danger:#B23A3A; --warn:#C98A2E;
   --shadow:0 2px 8px rgba(40,50,20,.06),0 1px 3px rgba(40,50,20,.04);
   --blur:saturate(1.3) blur(12px); --blur-strong:saturate(1.4) blur(20px);
+  --font-scale:1;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
-  color:var(--ink);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  color:var(--ink);font-size:calc(14px * var(--font-scale));line-height:1.6;-webkit-font-smoothing:antialiased;font-weight:450;
   background:linear-gradient(135deg,#DDE6CC 0%,#E8ECDF 40%,#D5DCC8 100%);
   background-attachment:fixed;min-height:100vh;position:relative;overflow-x:hidden;
 }
@@ -149,6 +150,35 @@ label{font-size:12.5px;color:var(--muted);font-weight:600;display:block;margin:8
 .ainews-num{flex-shrink:0;width:28px;height:28px;border-radius:9px;background:rgba(94,122,58,0.15);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--olive-dd);border:1px solid rgba(94,122,58,0.2)}
 .ainews-plain{font-size:13px;color:#3a3f30;line-height:1.55;margin-top:6px}
 .ainews-why{font-size:12px;color:var(--olive-dd);background:rgba(234,243,222,0.4);border-radius:8px;padding:7px 10px;margin-top:8px;backdrop-filter:blur(4px);border-left:3px solid var(--olive)}
+/* 字体大小选择器 */
+.fontsize-btns{display:flex;gap:8px;margin-top:6px}
+.fontsize-btns .fs-btn{flex:1;padding:10px 6px;border-radius:10px;border:1px solid var(--glass-border);background:rgba(255,255,255,0.45);backdrop-filter:blur(6px);font-size:13px;font-weight:600;cursor:pointer;text-align:center;color:var(--muted);transition:all .15s}
+.fontsize-btns .fs-btn.active{background:rgba(94,122,58,0.85);color:#fff;border-color:transparent}
+/* 导航排序 */
+.nav-sort-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(217,223,200,0.3)}
+.nav-sort-item:last-child{border-bottom:none}
+.nav-sort-item .ns-ic{font-size:16px;width:22px;text-align:center}
+.nav-sort-item .ns-name{flex:1;font-size:13px;font-weight:600}
+.nav-sort-item .ns-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--glass-border);background:rgba(255,255,255,0.45);font-size:14px;cursor:pointer;color:var(--olive-dd);display:flex;align-items:center;justify-content:center}
+.nav-sort-item .ns-btn:active{background:rgba(94,122,58,0.15)}
+.nav-sort-item .ns-btn:disabled{opacity:.3;cursor:not-allowed}
+/* ============ 响应式：电脑端常驻侧边栏 ============ */
+@media(min-width:768px){
+  .app{max-width:100%}
+  .header .menu-btn{display:none}
+  .drawer{position:fixed;top:52px;left:0;bottom:0;transform:none !important;width:240px;z-index:20;box-shadow:2px 0 20px rgba(20,30,10,0.08)}
+  .drawer-overlay{display:none !important}
+  .main{margin-left:240px;max-width:780px;margin-right:auto;padding:16px 20px 28px}
+  .fab{left:calc(240px + (100% - 240px) / 2 + 280px);right:auto}
+  .fab{left:auto;right:calc((100% - 240px - 780px) / 2 + 20px)}
+  .sheet{margin-left:240px;max-width:780px}
+  .toast{margin-left:240px}
+  .header{max-width:100%}
+}
+@media(min-width:1100px){
+  .main{max-width:860px}
+  .sheet{max-width:860px}
+}
 </style>
 </head>
 <body>
@@ -167,7 +197,7 @@ label{font-size:12.5px;color:var(--muted);font-weight:600;display:block;margin:8
       <div class="sub">教育校园 · 抖音创作台</div>
     </div>
     <nav id="nav"></nav>
-    <div class="foot">小野工作台 v4.0 · AI资讯版</div>
+    <div class="foot">小野工作台 v4.2 · 响应式版</div>
   </aside>
 
   <main class="main" id="main"></main>
@@ -263,7 +293,9 @@ function loadData(){
     englishProgress:{date:"",checked:[]},
     profile:Object.assign({},DEFAULT_PROFILE),
     settings:{gistId:"8c01ff2a49e05adee2dec497028cdb8a",gistToken:"",kimiKey:""},
-    content:null, contentAt:0
+    content:null, contentAt:0,
+    fontSize:"normal",
+    navOrder:NAV.map(n=>n.id)
   };
   try{
     const s=JSON.parse(localStorage.getItem(KEY)||"{}");
@@ -276,6 +308,8 @@ function loadData(){
     if(s.settings)d.settings=Object.assign(d.settings,s.settings);
     if(s.content)d.content=s.content;
     if(s.contentAt)d.contentAt=s.contentAt;
+    if(s.fontSize)d.fontSize=s.fontSize;
+    if(s.navOrder&&s.navOrder.length)d.navOrder=s.navOrder;
   }catch(e){}
   if(!d.memo.length)d.memo=Array.from({length:5},()=>({id:rid(),text:"",done:false}));
   return d;
@@ -287,9 +321,33 @@ function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMo
 
 /* ============ 渲染入口 ============ */
 function renderNav(){
-  document.getElementById("nav").innerHTML=NAV.map(n=>
+  const order=DATA.navOrder||NAV.map(n=>n.id);
+  const map={};NAV.forEach(n=>map[n.id]=n);
+  const items=order.map(id=>map[id]).filter(Boolean);
+  document.getElementById("nav").innerHTML=items.map(n=>
     `<div class="nav-item ${n.id===currentPage?'active':''}" onclick="go('${n.id}')"><span class="ic">${n.ic}</span>${n.name}</div>`
   ).join("");
+}
+function applyFontSize(){
+  const map={small:0.88,normal:1,large:1.15,xlarge:1.3};
+  document.documentElement.style.setProperty('--font-scale',map[DATA.fontSize]||1);
+}
+function moveNav(idx,dir){
+  const arr=DATA.navOrder;
+  const j=idx+dir;
+  if(j<0||j>=arr.length)return;
+  [arr[idx],arr[j]]=[arr[j],arr[idx]];
+  saveData();renderNavSort();
+}
+function renderNavSort(){
+  const el=document.getElementById("navSortList");
+  if(!el)return;
+  const order=DATA.navOrder||NAV.map(n=>n.id);
+  const map={};NAV.forEach(n=>map[n.id]=n);
+  el.innerHTML=order.map((id,i)=>{
+    const n=map[id];if(!n)return"";
+    return `<div class="nav-sort-item"><span class="ns-ic">${n.ic}</span><span class="ns-name">${n.name}</span><button class="ns-btn" onclick="moveNav(${i},-1)" ${i===0?'disabled':''}>&#8593;</button><button class="ns-btn" onclick="moveNav(${i},1)" ${i===order.length-1?'disabled':''}>&#8595;</button></div>`;
+  }).join("");
 }
 function go(id){
   currentPage=id;
@@ -625,6 +683,22 @@ function renderSettings(){
   const p=DATA.profile;
   return `
   <div class="card">
+    <h3>字体大小</h3>
+    <div class="mini">手机端如果觉得字太小太细，可以调大</div>
+    <div class="fontsize-btns" id="fontsizeBtns">
+      <div class="fs-btn ${DATA.fontSize==='small'?'active':''}" onclick="setFontSize('small')">小</div>
+      <div class="fs-btn ${DATA.fontSize==='normal'?'active':''}" onclick="setFontSize('normal')">标准</div>
+      <div class="fs-btn ${DATA.fontSize==='large'?'active':''}" onclick="setFontSize('large')">大</div>
+      <div class="fs-btn ${DATA.fontSize==='xlarge'?'active':''}" onclick="setFontSize('xlarge')">超大</div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>导航排序</h3>
+    <div class="mini">点上下箭头调整左侧菜单顺序，设置建议放最后</div>
+    <div id="navSortList" style="margin-top:8px"></div>
+    <button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" onclick="resetNavOrder()">恢复默认顺序</button>
+  </div>
+  <div class="card">
     <h3>创作画像（可编辑）</h3>
     <div class="note">修改后点「保存画像」，再点右上角同步按钮。下次自动生成（8:00/14:00）将使用新画像。</div>
     <label>博主名称</label>
@@ -666,7 +740,7 @@ function renderSettings(){
       <button class="btn btn-primary" onclick="saveSettings()">保存</button>
       <button class="btn btn-ghost" onclick="fetchContent(true)">拉取内容</button>
     </div>
-    <div class="note" style="margin-top:8px">同步会上传：计划、备忘、读书、默认任务、创作画像。下次自动生成将读取你的画像。</div>
+    <div class="note" style="margin-top:8px">同步内容：计划、备忘、读书、默认任务、创作画像、字体大小、导航排序。下次自动生成将读取你的画像。</div>
   </div>
   <div class="card">
     <h3>当前状态</h3>
@@ -710,6 +784,8 @@ function savePlanDefaults(){
   saveData();toast("默认任务已保存");
 }
 function saveSettings(){DATA.settings.gistId=val("s_gist").trim();DATA.settings.gistToken=val("s_token").trim();saveData();toast("已保存");}
+function setFontSize(s){DATA.fontSize=s;saveData();applyFontSize();document.querySelectorAll('#fontsizeBtns .fs-btn').forEach((b,i)=>{const arr=['small','normal','large','xlarge'];b.classList.toggle('active',arr[i]===s);});toast("字体大小已调整");}
+function resetNavOrder(){DATA.navOrder=NAV.map(n=>n.id);saveData();renderNav();renderNavSort();toast("已恢复默认顺序");}
 function exportData(){const blob=new Blob([JSON.stringify(DATA,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="xiaoye-backup-"+todayStr()+".json";a.click();toast("已导出备份");}
 function importData(f){const r=new FileReader();r.onload=()=>{try{const s=JSON.parse(r.result);Object.assign(DATA,s);saveData();render();toast("已导入");}catch(e){toast("文件格式错误")}};r.readAsText(f.files[0]);}
 
@@ -756,12 +832,15 @@ async function syncData(){
       if(cloudData.memo)DATA.memo=cloudData.memo;
       if(cloudData.reading)DATA.reading=cloudData.reading;
       if(cloudData.planDefaults)DATA.planDefaults=cloudData.planDefaults;
+      if(cloudData.fontSize)DATA.fontSize=cloudData.fontSize;
+      if(cloudData.navOrder&&cloudData.navOrder.length)DATA.navOrder=cloudData.navOrder;
     }
     if(cloudProfile)DATA.profile=cloudProfile;
+    applyFontSize();renderNav();
     saveData();render();
     /* 3. 上传合并后的本地数据到云端 */
     const payload={files:{
-      "data.json":{content:JSON.stringify({plan:DATA.plan,memo:DATA.memo,reading:DATA.reading,planDefaults:DATA.planDefaults},null,2)},
+      "data.json":{content:JSON.stringify({plan:DATA.plan,memo:DATA.memo,reading:DATA.reading,planDefaults:DATA.planDefaults,fontSize:DATA.fontSize,navOrder:DATA.navOrder},null,2)},
       "profile.json":{content:JSON.stringify(DATA.profile,null,2)}
     }};
     const r=await fetch("https://api.github.com/gists/"+s.gistId.trim(),{method:"PATCH",headers:{'Authorization':'Bearer '+s.gistToken.trim(),'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify(payload)});
@@ -795,11 +874,12 @@ let toastT;
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2200);}
 
 /* ============ 启动 ============ */
+applyFontSize();
 renderNav();go("plan");
 if(DATA.settings.gistId)fetchContent(false);
-/* 设置页渲染后补渲染默认任务列表 */
+/* 设置页渲染后补渲染默认任务列表 + 导航排序列表 */
 const origRender=render;
-render=function(){origRender();if(currentPage==="settings")renderPlanDefaultsList();};
+render=function(){origRender();if(currentPage==="settings"){renderPlanDefaultsList();renderNavSort();}};
 </script>
 </body>
 </html>
