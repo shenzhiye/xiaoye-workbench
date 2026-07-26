@@ -42,12 +42,12 @@ body::after{width:220px;height:220px;background:rgba(124,155,78,0.15);bottom:80p
 .header .icon-btn{width:38px;height:38px;border:none;background:rgba(255,255,255,0.12);color:#fff;font-size:18px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;backdrop-filter:blur(6px)}
 .header .icon-btn:active{background:rgba(255,255,255,.22)}
 /* 毛玻璃 Drawer */
-.drawer-overlay{position:fixed;inset:0;background:rgba(20,28,10,.4);backdrop-filter:blur(4px);z-index:50;opacity:0;pointer-events:none;transition:opacity .25s}
+.drawer-overlay{position:fixed;inset:0;background:rgba(20,28,10,.25);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:50;opacity:0;pointer-events:none;transition:opacity .25s}
 .drawer-overlay.open{opacity:1;pointer-events:auto}
 .drawer{position:fixed;top:0;left:0;bottom:0;width:264px;max-width:80vw;
-  background:rgba(43,80,10,0.82);backdrop-filter:var(--blur-strong);-webkit-backdrop-filter:var(--blur-strong);
+  background:linear-gradient(165deg,rgba(43,80,10,0.5),rgba(94,122,58,0.42));backdrop-filter:var(--blur-strong);-webkit-backdrop-filter:var(--blur-strong);
   color:#fff;z-index:60;transform:translateX(-105%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;
-  border-right:1px solid rgba(255,255,255,0.1)}
+  border-right:1px solid rgba(255,255,255,0.22);box-shadow:4px 0 28px rgba(20,30,10,0.12)}
 .drawer.open{transform:translateX(0)}
 .drawer-head{padding:22px 18px 16px;border-bottom:1px solid rgba(255,255,255,0.08)}
 .drawer-head .avatar{width:46px;height:46px;border-radius:14px;background:rgba(94,122,58,0.6);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;margin-bottom:8px;border:1px solid rgba(255,255,255,0.15)}
@@ -145,6 +145,10 @@ label{font-size:12.5px;color:var(--muted);font-weight:600;display:block;margin:8
 .insp-card .insp-body{flex:1}
 .insp-card .insp-theme{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px}
 .insp-card .insp-content{font-size:12.5px;color:var(--muted);line-height:1.5}
+/* AI资讯 */
+.ainews-num{flex-shrink:0;width:28px;height:28px;border-radius:9px;background:rgba(94,122,58,0.15);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--olive-dd);border:1px solid rgba(94,122,58,0.2)}
+.ainews-plain{font-size:13px;color:#3a3f30;line-height:1.55;margin-top:6px}
+.ainews-why{font-size:12px;color:var(--olive-dd);background:rgba(234,243,222,0.4);border-radius:8px;padding:7px 10px;margin-top:8px;backdrop-filter:blur(4px);border-left:3px solid var(--olive)}
 </style>
 </head>
 <body>
@@ -163,7 +167,7 @@ label{font-size:12.5px;color:var(--muted);font-weight:600;display:block;margin:8
       <div class="sub">教育校园 · 抖音创作台</div>
     </div>
     <nav id="nav"></nav>
-    <div class="foot">小野工作台 v3.0 · 毛玻璃版</div>
+    <div class="foot">小野工作台 v4.0 · AI资讯版</div>
   </aside>
 
   <main class="main" id="main"></main>
@@ -226,6 +230,13 @@ const SEED_ENGLISH = [
   {en:"Great job! I'm so proud of you.", zh:"太棒了！我为你骄傲。"},
   {en:"Let's read a story before sleep.", zh:"睡前我们读个故事吧。"}
 ];
+const SEED_AINEWS = [
+  {title:"OpenAI发布GPT-5",plainText:"就是做ChatGPT那家公司出了个更聪明的新版本，写文章、回答问题、做数学题都比以前强不少。",why:"以后你用的各种AI工具都会变聪明，包括帮你写文案、改作业的助手。"},
+  {title:"国产大模型价格战白热化",plainText:"百度、阿里、字节等公司纷纷把AI大模型的价格降到了几乎免费，抢着拉用户。",why:"对普通人来说是好事，免费用AI的时代越来越近了。"},
+  {title:"AI能帮小学生辅导作业了",plainText:"现在的AI不仅能解题，还能像老师一样一步步讲解思路，甚至能批改手写作业。",why:"作为教育赛道博主，这是你能用的工具也是能拍的选题。"},
+  {title:"Sora开放给普通用户",plainText:"OpenAI的文字生成视频工具终于开放使用了，打几个字就能生成一段视频。",why:"做短视频的门槛会进一步降低，你的赛道可能迎来新玩家。"},
+  {title:"AI数字人播报开始普及",plainText:"很多新闻和短视频开始用AI生成的虚拟人来播报，看起来跟真人差不多。",why:"你的赛道暂时不受影响，但值得关注趋势，也许将来能用来做口播。"}
+];
 
 /* ============ 导航 ============ */
 const NAV=[
@@ -234,6 +245,7 @@ const NAV=[
   {id:"viral",name:"爆款视频",ic:"\u{1F525}"},
   {id:"recreate",name:"爆款热点二创",ic:"\u{1F4A5}"},
   {id:"english",name:"英语学习",ic:"\u{1F4D6}"},
+  {id:"ainews",name:"AI资讯",ic:"\u{1F9E0}"},
   {id:"memo",name:"备忘录",ic:"\u270E"},
   {id:"reading",name:"读书",ic:"\u{1F4DA}"},
   {id:"settings",name:"设置",ic:"\u2699"}
@@ -294,6 +306,7 @@ function render(){
   else if(currentPage==="viral")main.innerHTML=renderViral();
   else if(currentPage==="recreate")main.innerHTML=renderRecreate();
   else if(currentPage==="english")main.innerHTML=renderEnglish();
+  else if(currentPage==="ainews")main.innerHTML=renderAiNews();
   else if(currentPage==="memo")main.innerHTML=renderMemo();
   else if(currentPage==="reading")main.innerHTML=renderReading();
   else if(currentPage==="settings")main.innerHTML=renderSettings();
@@ -495,6 +508,33 @@ function renderEnglish(){
 }
 function toggleEnglish(i){DATA.englishProgress.checked[i]=!DATA.englishProgress.checked[i];saveData();render();}
 
+/* ============ AI资讯 ============ */
+function getAiNews(){
+  if(DATA.content&&DATA.content.aiNews&&DATA.content.aiNews.length)return DATA.content.aiNews;
+  return SEED_AINEWS;
+}
+function renderAiNews(){
+  const list=getAiNews();
+  const upd=DATA.contentAt?new Date(DATA.contentAt).toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):"本地示例";
+  let h=`<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+    <div><h3 style="margin:0">AI资讯</h3><div class="mini">更新：${upd} · 共${list.length}条 · 每天9:00自动更新 · 大白话解读</div></div>
+    <button class="btn btn-ghost btn-sm" onclick="fetchContent(true)">刷新</button>
+  </div>`;
+  list.forEach((it,i)=>{
+    h+=`<div class="card">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div class="ainews-num">${i+1}</div>
+        <div style="flex:1">
+          <h3 style="margin:0">${esc(it.title)}</h3>
+          <div class="ainews-plain">${esc(it.plainText)}</div>
+          <div class="ainews-why"><b>为什么重要：</b>${esc(it.why)}</div>
+        </div>
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
 /* ============ 备忘录 ============ */
 function renderMemo(){
   let h=`<div class="card"><h3>备忘录</h3><div class="mini">默认5行，可勾选、可加行</div></div>`;
@@ -514,6 +554,14 @@ function addMemo(){const v=document.getElementById("m1").value.trim();DATA.memo.
 /* ============ 读书 ============ */
 function renderReading(){
   let h=`<div class="card"><h3>读书</h3><div class="mini">记录在读进度，自动算已读天数</div></div>`;
+  h+=`<div class="card" style="display:flex;align-items:center;gap:12px">
+    <div style="font-size:30px">\u{1F4D6}</div>
+    <div style="flex:1">
+      <h3 style="margin:0">微信读书</h3>
+      <div class="mini">一键打开微信读书APP，继续阅读</div>
+    </div>
+    <button class="btn btn-primary" onclick="launchWeRead()">打开</button>
+  </div>`;
   if(!DATA.reading.length)h+=`<div class="empty"><div class="big">\u{1F4DA}</div>还没有在读书，点右下角＋添加</div>`;
   DATA.reading.forEach((b,i)=>{
     const pct=b.total?Math.min(100,Math.round(b.current/b.total*100)):0;
@@ -561,6 +609,14 @@ function openUpdPage(i){const b=DATA.reading[i];openSheet("修改页数",`<label
 function saveUpdPage(i){DATA.reading[i].current=Math.max(0,Math.min(DATA.reading[i].total,+val("u_page")||0));saveData();closeSheet();render();toast("已保存");}
 function finishReading(i){DATA.reading[i].finish=todayStr();if(!DATA.reading[i].current)DATA.reading[i].current=DATA.reading[i].total;saveData();render();toast("恭喜读完！");}
 function delReading(i){DATA.reading.splice(i,1);saveData();render();}
+function launchWeRead(){
+  const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if(isMobile){
+    const t=Date.now();const ifr=document.createElement('iframe');ifr.style.display='none';ifr.src='weread://';document.body.appendChild(ifr);
+    setTimeout(()=>{try{document.body.removeChild(ifr);}catch(e){}},300);
+    setTimeout(()=>{if(Date.now()-t<2000)window.open('https://weread.qq.com/','_blank');},900);
+  }else{window.open('https://weread.qq.com/','_blank');}
+}
 
 /* ============ 设置 ============ */
 function renderSettings(){
@@ -614,7 +670,7 @@ function renderSettings(){
   <div class="card">
     <h3>当前状态</h3>
     <div class="kv"><span>GitHub 仓库</span><span class="v">shenzhiye/xiaoye-workbench</span></div>
-    <div class="kv"><span>自动生成</span><span class="v">每天 8:00 / 14:00</span></div>
+    <div class="kv"><span>自动生成</span><span class="v">每天 8:00 / 9:00 / 14:00</span></div>
     <div class="kv"><span>在线网址</span><span class="v" style="font-size:11px">shenzhiye.github.io/xiaoye-workbench</span></div>
   </div>
   <div class="card">
