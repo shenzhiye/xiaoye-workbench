@@ -134,7 +134,7 @@ def call_kimi(profile_str, hot_text):
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    with urllib.request.urlopen(req, timeout=120) as r:
+    with urllib.request.urlopen(req, timeout=180) as r:
         resp = json.loads(r.read().decode("utf-8"))
     content = resp["choices"][0]["message"]["content"]
     # 兜底: 去掉可能的 markdown 代码块标记
