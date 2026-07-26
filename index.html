@@ -156,7 +156,7 @@ label{font-size:12.5px;color:var(--muted);font-weight:600;display:block;margin:8
   <header class="header">
     <button class="menu-btn" onclick="toggleDrawer(true)">&#9776;</button>
     <h1 id="pageTitle">每日计划</h1>
-    <button class="icon-btn" onclick="syncData()" title="同步">&#8635;</button>
+    <button class="icon-btn" onclick="syncData()" title="一键同步（手机↔电脑）">&#8635;</button>
   </header>
 
   <div class="drawer-overlay" id="overlay" onclick="toggleDrawer(false)"></div>
@@ -299,6 +299,7 @@ function go(id){
   render();
   document.getElementById("fab").style.display=(id==="plan"||id==="memo"||id==="reading")?"flex":"none";
 }
+function openSettings(){go("settings");}
 function render(){
   const main=document.getElementById("main");
   if(currentPage==="plan")main.innerHTML=renderPlan();
@@ -732,16 +733,40 @@ async function fetchContent(show){
 }
 async function syncData(){
   const s=DATA.settings;
-  if(!s.gistId.trim()||!s.gistToken.trim()){toast("同步需填 Gist ID + Token（在设置里）");return;}
-  toast("上传同步中…");
-  const payload={files:{
-    "data.json":{content:JSON.stringify({plan:DATA.plan,memo:DATA.memo,reading:DATA.reading,planDefaults:DATA.planDefaults},null,2)},
-    "profile.json":{content:JSON.stringify(DATA.profile,null,2)}
-  }};
+  if(!s.gistId.trim()||!s.gistToken.trim()){toast("请先在设置页填写 Gist ID + Token");openSettings();return;}
+  toast("双向同步中…");
   try{
+    /* 1. 拉取云端数据 */
+    let cloudData=null,cloudProfile=null;
+    const gr=await fetch("https://api.github.com/gists/"+s.gistId.trim(),{headers:{'Authorization':'Bearer '+s.gistToken.trim(),'Accept':'application/vnd.github+json'}});
+    if(gr.ok){
+      const g=await gr.json();
+      if(g.files['data.json']){try{cloudData=JSON.parse(g.files['data.json'].content);}catch(e){}}
+      if(g.files['profile.json']){try{cloudProfile=JSON.parse(g.files['profile.json'].content);}catch(e){}}
+    }
+    /* 2. 合并云端→本地 */
+    if(cloudData){
+      /* plan 按日期合并：云端+本地所有日期都保留，同一天取云端的（另一设备更新过） */
+      if(cloudData.plan&&Array.isArray(cloudData.plan)){
+        const cloudByDate={};cloudData.plan.forEach(p=>{if(p.date)cloudByDate[p.date]=p;});
+        const localDates=DATA.plan.map(p=>p.date);
+        DATA.plan=DATA.plan.map(p=>cloudByDate[p.date]?cloudByDate[p.date]:p);
+        cloudData.plan.forEach(p=>{if(p.date&&!localDates.includes(p.date))DATA.plan.push(p);});
+      }
+      if(cloudData.memo)DATA.memo=cloudData.memo;
+      if(cloudData.reading)DATA.reading=cloudData.reading;
+      if(cloudData.planDefaults)DATA.planDefaults=cloudData.planDefaults;
+    }
+    if(cloudProfile)DATA.profile=cloudProfile;
+    saveData();render();
+    /* 3. 上传合并后的本地数据到云端 */
+    const payload={files:{
+      "data.json":{content:JSON.stringify({plan:DATA.plan,memo:DATA.memo,reading:DATA.reading,planDefaults:DATA.planDefaults},null,2)},
+      "profile.json":{content:JSON.stringify(DATA.profile,null,2)}
+    }};
     const r=await fetch("https://api.github.com/gists/"+s.gistId.trim(),{method:"PATCH",headers:{'Authorization':'Bearer '+s.gistToken.trim(),'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!r.ok)throw new Error(r.status);
-    toast("已同步到云端（含画像） ✓");
+    toast("双向同步完成 ✓（计划/备忘/读书/画像）");
   }catch(e){toast("同步失败："+e.message);}
 }
 
