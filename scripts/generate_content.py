@@ -78,8 +78,8 @@ def call_kimi(hot_text):
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": user_msg}
         ],
-        "temperature": 0.85,
-        "max_tokens": 6000
+        "temperature": 1,
+        "max_tokens": 16000
     }).encode("utf-8")
     req = urllib.request.Request(KIMI_URL, data=body, headers={
         "Authorization": "Bearer " + KIMI_KEY,
