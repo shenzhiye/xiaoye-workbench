@@ -493,7 +493,7 @@ function renderViral(){
       <div style="font-size:13px;color:#3a3f30;margin-top:6px"><b>中心内容：</b>${esc(it.content)}</div>
       <div class="note" style="margin:8px 0"><b>爆火原因：</b>${esc(it.viralReason)}</div>
       <div class="platform-btns">
-        <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.title||'').replace(/`/g,'')}\`)">查看原视频</button>
+        <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.url||'').replace(/`/g,'')}\`,\`${(it.title||'').replace(/`/g,'')}\`)">查看原视频</button>
       </div>
     </div>`;
   });
@@ -507,9 +507,17 @@ function getPlatTag(p){
   if(p==="知乎")return{cls:"plat-zhihu",btnCls:"p-zhihu"};
   return{cls:"plat-all",btnCls:"p-douyin"};
 }
-function launchViral(platform,title){
+function launchViral(platform, url, title){
   const m={"抖音":"douyin","B站":"bilibili","小红书":"xhs","知乎":"zhihu"};
-  launch(m[platform]||"douyin",title);
+  const app=m[platform]||"douyin";
+  const kw=title||'教育 校园 一年级';
+  /* 有原始链接:优先直接打开(手机端iOS会自动唤起APP并定位到具体视频,比scheme唤起首页更准) */
+  if(url && /^https?:\/\//.test(url)){
+    window.open(url,'_blank');
+    return;
+  }
+  /* 无链接:回退到scheme唤起APP+关键词搜索 */
+  launch(app, kw);
 }
 
 /* ============ 爆款热点二创 ============ */
@@ -538,7 +546,7 @@ function renderRecreate(){
       <div class="note" style="margin:8px 0"><b>理由：</b>${esc(it.reason)}</div>
       <div style="font-size:12.5px;color:#3a3f30;background:rgba(234,243,222,0.4);border-radius:8px;padding:8px 10px;backdrop-filter:blur(4px)"><b>二创文案：</b>${esc(it.script)}</div>
       <div class="platform-btns">
-        <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${title.replace(/`/g,'')}\`)">查看原视频/争议帖</button>
+        <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.url||'').replace(/`/g,'')}\`,\`${title.replace(/`/g,'')}\`)">查看原视频/争议帖</button>
       </div>
     </div>`;
   });
@@ -595,16 +603,21 @@ function renderAiNews(){
   const list=getAiNews();
   const upd=DATA.contentAt?new Date(DATA.contentAt).toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):"本地示例";
   let h=`<div class="card" style="display:flex;justify-content:space-between;align-items:center">
-    <div><h3 style="margin:0">AI资讯</h3><div class="mini">更新：${upd} · 共${list.length}条 · 每天9:00自动更新 · 大白话解读</div></div>
+    <div><h3 style="margin:0">AI资讯</h3><div class="mini">更新：${upd} · 共${list.length}条 · 每天8:00/14:00自动更新 · 第一手AI动态</div></div>
     <button class="btn btn-ghost btn-sm" onclick="fetchContent(true)">刷新</button>
   </div>`;
   list.forEach((it,i)=>{
+    const cat=it.category||"AI动态";
     h+=`<div class="card">
       <div style="display:flex;gap:10px;align-items:flex-start">
         <div class="ainews-num">${i+1}</div>
         <div style="flex:1">
-          <h3 style="margin:0">${esc(it.title)}</h3>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <h3 style="margin:0;flex:1">${esc(it.title)}</h3>
+            <span style="font-size:11px;background:rgba(94,122,58,0.14);color:var(--olive-d);padding:2px 8px;border-radius:6px;white-space:nowrap;font-weight:600">${esc(cat)}</span>
+          </div>
           <div class="ainews-plain">${esc(it.plainText)}</div>
+          ${it.howToUse?`<div style="font-size:12.5px;color:#3a3f30;background:rgba(234,243,222,0.45);border-radius:8px;padding:7px 10px;margin-top:6px"><b>怎么用：</b>${esc(it.howToUse)}</div>`:""}
           <div class="ainews-why"><b>为什么重要：</b>${esc(it.why)}</div>
         </div>
       </div>
