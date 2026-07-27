@@ -112,7 +112,7 @@ def get_hotlist():
             if not isinstance(arr, list):
                 arr = arr.get('list', []) if isinstance(arr, dict) else []
             cnt = 0
-            for it in arr[:20]:
+            for it in arr[:10]:
                 t = it.get('title', '')
                 u = it.get('link', it.get('url', ''))
                 hot_val = it.get('hot_value', it.get('hot', ''))
@@ -192,10 +192,10 @@ def call_kimi(profile_str, hot_text, date_ctx):
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    print("  调用Kimi生成内容(超时360s,最多重试2次)...")
+    print("  调用Kimi生成内容(超时480s,最多重试2次)...")
     for attempt in range(2):
         try:
-            with urllib.request.urlopen(req, timeout=360) as r:
+            with urllib.request.urlopen(req, timeout=480) as r:
                 resp = json.loads(r.read().decode("utf-8"))
             content = resp["choices"][0]["message"]["content"]
             result = _parse_json_safe(content)
