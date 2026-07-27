@@ -3,7 +3,7 @@
 小野工作台 - 每日内容自动生成
 每天 8:00 / 14:00(北京时间) 由 GitHub Actions 触发
 流程: 读取用户画像(Gist profile.json) -> 抓取多平台热榜 -> 调 Kimi 生成 -> 写入公开 Gist
-生成: 10条爆款视频 + 10条二创 + 5句英语 + 20条AI资讯(深度解读)
+生成: 10条爆款视频 + 10条二创 + 5句英语 + 20条AI资讯(国内外覆盖,分2次调用)
 """
 import os, sys, json, time, re, urllib.request, urllib.error
 
@@ -214,72 +214,69 @@ def call_kimi(profile_str, hot_text, date_ctx):
     content = re.sub(r"\s*```$", "", content.strip())
     return json.loads(content)
 
-# ---------- 生成AI资讯(独立Kimi调用,深度解读) ----------
-def generate_ai_news(hot, date_ctx):
-    """生成20条AI重要新闻,深度解读,聚焦普通人能用能用懂的第一手资讯。"""
-    date_str, season = date_ctx
-    ai_kw = ["AI", "人工智能", "GPT", "大模型", "ChatGPT", "Claude", "Gemini",
-             "OpenAI", "机器学习", "深度学习", "AGI", "Sora", "智能", "算法",
-             "机器人", "自动驾驶", "芯片", "英伟达", "NVIDIA", "百度", "文心",
-             "通义", "Kimi", "月之暗面", "豆包", "DeepSeek", "算力", "开源",
-             "Llama", "Anthropic", "科技", "数字人", "AIGC", "智能体", "Agent",
-             "可灵", "即梦", "通义千问", "智谱", " Manus", "SORA", "视频生成"]
-    ai_ref = []
-    for h in hot:
-        t = h.get("title", "")
-        if any(k.lower() in t.lower() for k in ai_kw):
-            ai_ref.append("[{}]{}".format(h.get("platform", ""), t))
-    ref_text = "\n".join(ai_ref[:15]) if ai_ref else "(热榜中暂无AI相关内容)"
-
-    prompt = f"""你是AI资讯主编,专门给不懂技术的家长(28-45岁妈妈)做AI动态解读,让普通人"能用上、看得懂、跟得上"。
-
-请总结AI领域当前最重要、普通人能用上的20条动态,国内国外都要覆盖,不限国内(国内外占比大致均衡):
-- 国外:OpenAI(ChatGPT/Sora)、Google(Gemini)、Anthropic(Claude)、Meta(Llama)、Microsoft(Copilot)、xAI(Grok)、Apple、NVIDIA等
-- 国内:豆包、Kimi(月之暗面)、DeepSeek、文心一言(百度)、通义千问(阿里)、智谱、可灵/即梦(字节)、腾讯混元、MiniMax等
-
-内容方向覆盖7类(【教育结合】【生活实用】要占多数,普通人最关心能用上的):
-- 【技能突破】AI能力突破(新模型/多模态/视频生成/Agent能力/长上下文)
-- 【应用落地】普通人怎么用AI(辅导作业/做课件/做视频/省钱省时间)
-- 【国内排名】国产AI动态(谁更强/谁免费/谁升级了)
-- 【国际动态】OpenAI/Google/Anthropic等国外巨头动作
-- 【教育结合】AI怎么帮孩子学习/帮妈妈辅导(重点!)
-- 【生活实用】AI在生活中的具体用法
-- 【行业政策】影响普通人的AI政策
-
-每条字段:
+# ---------- 生成AI资讯(分2次调用,每次10条,合并20条,国内外都覆盖) ----------
+FIELD_SPEC = """每条字段:
 - title:标题(12-20字,点明是什么事)
-- category:从上述7类选一个
-- plainText:大白话解释是什么(2-3句,不用术语,像跟朋友聊天)
+- category:从下列7类选一个:【技能突破】【应用落地】【国内排名】【国际动态】【教育结合】【生活实用】【行业政策】
+- plainText:大白话解释是什么(1-2句,不用术语,像跟朋友聊天)
 - whichAI:这条涉及哪个具体AI产品(如豆包/Kimi/ChatGPT/Claude/Gemini/文心/通义/DeepSeek/可灵/即梦/智谱/Sora等)。不涉及具体产品的行业新闻写"行业动态"
 - pricing:这个AI是否收费。写"免费"/"部分免费"/"付费(月费约X元)"/"免费+付费版"
-- alternatives:同类AI有哪些,核心区别一句话(如"类似还有Kimi(长文本强)、文心(中文好)、DeepSeek(免费且强)")
+- alternatives:同类AI有哪些,核心区别一句话(如"类似还有Kimi(长文本强)、文心(中文好)")
 - howToUse:具体怎么用/怎么操作(写清步骤或使用场景;行业动态就写"对普通人的影响")
 - why:跟妈妈群体有什么关系(1句)
 
-涉及AI技能升级时,必须说清楚:是哪个AI升级了什么、是否收费、同类AI有哪些区别。让读者看完就知道"该用哪个、要不要花钱"。
-涉及国外AI时,说清楚国内能不能用、有没有替代品。
-
+涉及AI技能升级时,说清楚是哪个AI、是否收费、同类AI区别。涉及国外AI时,说清楚国内能不能用、有没有替代品。
 只返回JSON,不要解释和代码块:
 {{"aiNews":[{{"title":"","category":"技能突破","plainText":"","whichAI":"","pricing":"","alternatives":"","howToUse":"","why":""}}]}}"""
 
+def _call_kimi_news(prompt, label, timeout=300):
+    """单次Kimi调用生成AI资讯,返回aiNews列表"""
     body = json.dumps({
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 1,
-        "max_tokens": 10000
+        "max_tokens": 8000
     }).encode("utf-8")
     req = urllib.request.Request(KIMI_URL, data=body, headers={
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    print("  调用Kimi生成AI资讯(国内外覆盖,超时420s)...")
-    with urllib.request.urlopen(req, timeout=420) as r:
+    print("  调用Kimi生成AI资讯[{}](超时{}s)...".format(label, timeout))
+    with urllib.request.urlopen(req, timeout=timeout) as r:
         resp = json.loads(r.read().decode("utf-8"))
     content = resp["choices"][0]["message"]["content"]
     content = re.sub(r"^```(?:json)?\s*", "", content.strip())
     content = re.sub(r"\s*```$", "", content.strip())
     result = json.loads(content)
     return result.get("aiNews", [])
+
+def generate_ai_news(hot, date_ctx):
+    """分2次调用Kimi(每次10条),国内外都覆盖,避免单次生成20条超时。"""
+    # 第1次:侧重国内AI + 教育/生活/应用类(普通人最能用上的)
+    prompt1 = """你是AI资讯主编,给不懂技术的家长(28-45岁妈妈)做AI动态解读,让普通人"能用上、看得懂"。
+
+请总结10条AI动态,这次侧重【国内AI产品】和【普通人能用上的应用】:
+- 国内AI:豆包、Kimi(月之暗面)、DeepSeek、文心一言(百度)、通义千问(阿里)、智谱、可灵/即梦(字节)、腾讯混元、MiniMax等
+- 内容方向优先:【教育结合】AI帮孩子学习/辅导作业、【生活实用】AI在生活中的用法、【应用落地】普通人怎么用AI、【国内排名】国产AI谁更强/谁升级了
+- 每条让人觉得"我能用上/跟我有关",不要泛泛而谈
+
+""" + FIELD_SPEC
+
+    # 第2次:侧重国外AI + 技能突破/国际动态/行业政策
+    prompt2 = """你是AI资讯主编,给不懂技术的家长(28-45岁妈妈)做AI动态解读,让普通人"能用上、看得懂"。
+
+请总结10条AI动态,这次侧重【国外AI产品】和【AI能力突破/行业动态】:
+- 国外AI:OpenAI(ChatGPT/Sora)、Google(Gemini)、Anthropic(Claude)、Meta(Llama)、Microsoft(Copilot)、xAI(Grok)、Apple、NVIDIA等
+- 内容方向优先:【技能突破】AI能力突破(新模型/多模态/视频生成/Agent)、【国际动态】OpenAI/Google/Anthropic动作、【应用落地】国外AI怎么用、【行业政策】影响普通人的政策
+- 涉及国外AI时,务必说清楚国内能不能用、有没有国产替代品
+
+""" + FIELD_SPEC
+
+    part1 = _call_kimi_news(prompt1, "国内侧重")
+    print("  第1批(国内侧重)生成 {} 条".format(len(part1)))
+    part2 = _call_kimi_news(prompt2, "国外侧重")
+    print("  第2批(国外侧重)生成 {} 条".format(len(part2)))
+    return part1 + part2
 
 # ---------- 匹配URL(从原始热榜数据中查找) ----------
 def find_url(title, hot_items):
@@ -354,11 +351,11 @@ def main():
                 matched += 1
     print("  二创URL匹配: {}/{}".format(matched, len(recr)))
 
-    # 5. 生成AI资讯(独立Kimi调用,深度解读) - 失败不中断流程
-    print("[4/5] 生成AI资讯(20条,国内外覆盖)...")
+    # 5. 生成AI资讯(分2次调用,国内外覆盖) - 失败不中断流程
+    print("[4/5] 生成AI资讯(20条,分2次调用国内外覆盖)...")
     try:
         ai_news = generate_ai_news(hot, date_ctx)
-        print("  生成 {} 条AI资讯".format(len(ai_news)))
+        print("  共生成 {} 条AI资讯".format(len(ai_news)))
     except Exception as e:
         print("  AI资讯生成失败(不影响其他内容): {}".format(str(e)[:80]))
         ai_news = [{"title":"AI资讯本次生成超时,点刷新重试","category":"行业政策","plainText":"AI资讯内容较多生成耗时较长,偶有超时。爆款视频和二创已正常更新,稍后点右上角刷新即可重新拉取AI资讯。","whichAI":"行业动态","pricing":"免费","alternatives":"","howToUse":"点页面右上角刷新按钮重新拉取","why":"AI资讯覆盖国内外20条,生成需要更长时间"}]
