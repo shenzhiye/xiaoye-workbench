@@ -96,36 +96,57 @@ def fetch_json(url, timeout=12):
         return json.loads(r.read().decode("utf-8"))
 
 def get_hotlist():
-    """多源抓取, 每条带平台标签(含知乎); 全失败则用兜底。打印抓取调试信息。"""
+    """抓取热榜。知乎用官方API(稳定有url),其他平台用vvhan(备选)。失败返回空列表。"""
     items = []
-    sources = [
-        ("抖音",   "https://api.vvhan.com/api/hotlist/douyinHot"),
-        ("B站",    "https://api.vvhan.com/api/hotlist/biliRD"),
-        ("小红书", "https://api.vvhan.com/api/hotlist/xhsHot"),
-        ("知乎",   "https://api.vvhan.com/api/hotlist/zhihuHot"),
-        ("微博",   "https://api.vvhan.com/api/hotlist/wbHot"),
+
+    # 1. 知乎热榜(官方API,稳定,有url)
+    try:
+        req = urllib.request.Request('https://api.zhihu.com/topstory/hot-lists/total?limit=15',
+            headers={'User-Agent':'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            d = json.loads(r.read().decode('utf-8'))
+        arr = d.get('data', [])
+        cnt = 0
+        for it in arr[:15]:
+            tgt = it.get('target', {})
+            t = tgt.get('title', '')
+            qid = tgt.get('id') or it.get('id')
+            u = tgt.get('url') or ('https://www.zhihu.com/question/'+str(qid) if qid else '')
+            if t:
+                items.append({'platform':'知乎', 'title': t, 'url': u})
+                cnt += 1
+        print('  [知乎] 成功抓取 {} 条'.format(cnt))
+    except Exception as e:
+        print('  [知乎] 抓取失败: {}'.format(str(e)[:50]))
+
+    # 2. vvhan多平台(备选,可能失效)
+    vvhan_sources = [
+        ('抖音',   'https://api.vvhan.com/api/hotlist/douyinHot'),
+        ('B站',    'https://api.vvhan.com/api/hotlist/biliRD'),
+        ('小红书', 'https://api.vvhan.com/api/hotlist/xhsHot'),
+        ('微博',   'https://api.vvhan.com/api/hotlist/wbHot'),
     ]
-    for platform, url in sources:
+    for platform, url in vvhan_sources:
         try:
             data = fetch_json(url)
-            arr = data.get("data", []) if isinstance(data, dict) else data
-            tag = platform if platform in ("抖音", "B站", "小红书", "知乎") else "全网"
+            arr = data.get('data', []) if isinstance(data, dict) else data
+            tag = platform
             cnt = 0
             for it in arr[:10]:
-                t = it.get("title") or it.get("name") or ""
-                u = it.get("url") or it.get("link") or ""
+                t = it.get('title') or it.get('name') or ''
+                u = it.get('url') or it.get('link') or ''
                 if t:
-                    items.append({"platform": tag, "title": t, "url": u})
+                    items.append({'platform': tag, 'title': t, 'url': u})
                     cnt += 1
-            print("  [{}] 成功抓取 {} 条".format(platform, cnt))
+            print('  [{}] 成功抓取 {} 条'.format(platform, cnt))
             if len(items) >= 30:
                 break
         except Exception as e:
-            print("  [{}] 抓取失败: {}".format(platform, str(e)[:50]))
+            print('  [{}] 抓取失败: {}'.format(platform, str(e)[:50]))
             continue
+
     if not items:
         print("  所有热榜源失败,将让Kimi基于当前季节自行生成选题")
-        return []
     return items[:30]
 
 # ---------- 调 Kimi 生成 ----------
