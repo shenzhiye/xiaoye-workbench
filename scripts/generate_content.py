@@ -2,8 +2,8 @@
 """
 小野工作台 - 每日内容自动生成
 每天 8:00 / 14:00(北京时间) 由 GitHub Actions 触发
-流程: 读取用户画像(Gist profile.json) -> 抓取多平台热榜(含知乎) -> 调 Kimi 生成 -> 写入公开 Gist
-生成: 10条爆款视频 + 10条二创 + 5句英语 + 3条每日灵感 + 20条AI资讯(大白话)
+流程: 读取用户画像(Gist profile.json) -> 抓取多平台热榜 -> 调 Kimi 生成 -> 写入公开 Gist
+生成: 10条爆款视频 + 10条二创 + 5句英语 + 20条AI资讯(深度解读)
 """
 import os, sys, json, time, re, urllib.request, urllib.error
 
@@ -41,6 +41,33 @@ def build_profile_str(p):
 【关键词】{keywords}
 【变现模式】{p.get('monetization','...')}"""
 
+# ---------- 当前日期与学期季节 ----------
+def get_date_context():
+    """返回(日期字符串, 学期状态说明)。用于注入prompt,避免AI生成过时场景。"""
+    now = time.localtime()
+    m = now.tm_mon
+    d = now.tm_mday
+    wkd = ["周一","周二","周三","周四","周五","周六","周日"][now.tm_wday]
+    date_str = "{}年{}月{}日 {}".format(now.tm_year, m, d, wkd)
+
+    if m == 7 and d >= 10:
+        season = "暑假中期(学生已放假,围绕暑假安排/弯道超车/亲子陪伴/暑期学习计划/幼小衔接暑假冲刺,绝对不要生成期末复习/考试类内容)"
+    elif m == 8:
+        season = "暑假中后期(围绕暑假收尾/暑期学习/亲子旅行/开学前收心准备,不要生成期末复习类内容)"
+    elif m == 9 and d <= 10:
+        season = "开学季(围绕开学收心/新学期准备/一年级新生入学/幼小衔接)"
+    elif (m == 8 and d >= 20):
+        season = "暑假尾声临近开学(围绕开学收心准备/暑假总结/新学期规划)"
+    elif m == 6 or (m == 7 and d <= 5):
+        season = "期末考试季(围绕期末复习/考前冲刺/试卷分析/暑假规划)"
+    elif m in (1, 2):
+        season = "寒假期间(围绕寒假安排/春节/假期学习/下学期预习)"
+    elif m == 3 and d <= 10:
+        season = "开学初(围绕新学期适应/春季学习计划)"
+    else:
+        season = "学期中(围绕日常学习/月考/单元复习)"
+    return date_str, season
+
 # ---------- 读取Gist中的用户画像 ----------
 def read_profile_from_gist():
     """从Gist读取profile.json; 不存在则返回默认画像"""
@@ -69,7 +96,7 @@ def fetch_json(url, timeout=12):
         return json.loads(r.read().decode("utf-8"))
 
 def get_hotlist():
-    """多源抓取, 每条带平台标签(含知乎); 全失败则用兜底"""
+    """多源抓取, 每条带平台标签(含知乎); 全失败则用兜底。打印抓取调试信息。"""
     items = []
     sources = [
         ("抖音",   "https://api.vvhan.com/api/hotlist/douyinHot"),
@@ -82,45 +109,59 @@ def get_hotlist():
         try:
             data = fetch_json(url)
             arr = data.get("data", []) if isinstance(data, dict) else data
-            # 抖音/B站/小红书/知乎 都保留各自平台标签; 微博标为"全网"
             tag = platform if platform in ("抖音", "B站", "小红书", "知乎") else "全网"
+            cnt = 0
             for it in arr[:10]:
                 t = it.get("title") or it.get("name") or ""
                 u = it.get("url") or it.get("link") or ""
                 if t:
                     items.append({"platform": tag, "title": t, "url": u})
-            if len(items) >= 25:
+                    cnt += 1
+            print("  [{}] 成功抓取 {} 条".format(platform, cnt))
+            if len(items) >= 30:
                 break
-        except Exception:
+        except Exception as e:
+            print("  [{}] 抓取失败: {}".format(platform, str(e)[:50]))
             continue
     if not items:
+        print("  所有热榜源失败,使用兜底数据")
         items = [
-            {"platform": "抖音",   "title": "小学生期末复习怎么安排",           "url": ""},
-            {"platform": "抖音",   "title": "一二年级数学应用题读不懂怎么办",     "url": ""},
-            {"platform": "抖音",   "title": "英语启蒙从几岁开始最好",           "url": ""},
-            {"platform": "B站",    "title": "陪孩子写作业忍不住发火",           "url": ""},
-            {"platform": "小红书", "title": "背乘法口诀的快捷方法",             "url": ""},
-            {"platform": "知乎",   "title": "幼小衔接要做好哪些准备",           "url": ""},
-            {"platform": "知乎",   "title": "孩子识字慢怎么办",                "url": ""},
-            {"platform": "小红书", "title": "计算粗心老出错怎么练",             "url": ""},
-            {"platform": "知乎",   "title": "一年级要不要报辅导班",             "url": ""},
-            {"platform": "B站",    "title": "英语启蒙走了弯路怎么补救",          "url": ""},
+            {"platform": "抖音",   "title": "暑假怎么给孩子安排学习和玩耍",     "url": ""},
+            {"platform": "抖音",   "title": "一二年级数学思维怎么练",          "url": ""},
+            {"platform": "小红书", "title": "暑假亲子陪伴不费妈的妙招",        "url": ""},
+            {"platform": "B站",    "title": "英语启蒙每天15分钟怎么坚持",      "url": ""},
+            {"platform": "知乎",   "title": "一年级暑假要不要报辅导班",        "url": ""},
+            {"platform": "小红书", "title": "背单词不枯燥的方法",            "url": ""},
+            {"platform": "抖音",   "title": "幼小衔接暑假冲刺清单",           "url": ""},
+            {"platform": "B站",    "title": "计算粗心老出错怎么练",           "url": ""},
         ]
-    return items[:25]
+    return items[:30]
 
 # ---------- 调 Kimi 生成 ----------
-def call_kimi(profile_str, hot_text):
-    sys_prompt = profile_str + "\n\n" + """你现在收到一份今日多平台热榜(含抖音/B站/小红书/知乎)。请基于这些热点,结合上述画像,生成四份内容:
+def call_kimi(profile_str, hot_text, date_ctx):
+    date_str, season = date_ctx
+    sys_prompt = profile_str + "\n\n" + f"""【重要】今天是 {date_str},处于{season}。生成内容必须与当前时间/季节匹配,绝对不要出现与当前季节矛盾的场景(例如暑假期间不要出现"期末复习""考试")。
 
-1.【爆款视频】从热榜中挑选10条最适合该画像赛道和目标人群的视频,为每条补充关键词、中心内容和爆火原因。platform字段根据热榜来源设为"抖音"、"B站"、"小红书"或"知乎"。
-2.【爆款二创】10条,把热点改编成该博主能直接拍的二创内容。每条需要:title(二创标题)、angle(改编角度)、keywords(2-3个关键词)、reason(为什么值得二创的理由)、script(30-60字口播文案,有活人感)、platform(来源平台:抖音/B站/小红书/知乎)、url(原视频或争议帖链接,如有则填,无则留空)。
-3.【每日灵感】3条创作灵感,每条包含time(时间段如"早晨""午间""晚间")、theme(主题)、content(大致内容描述,2-3句话)。
-4.【英语学习】5句日常生活中妈妈教孩子时常用的英语口语,简单实用,适合亲子场景,不要太难。
+你现在收到一份今日多平台实时热榜(含抖音/B站/小红书/知乎)。请严格基于这些热点(不要凭空编造热榜里没有的内容),结合上述画像,生成三份内容:
+
+1.【爆款视频】从热榜中挑选10条最适合该画像赛道和目标人群的视频。要求:
+  - title字段直接用热榜中的原始标题,不要改写(这样后面才能匹配到原链接)
+  - 补充keywords(2-3个)、content(中心内容,2-3句话概括)、viralReason(爆火原因)
+  - platform字段根据热榜来源设为"抖音"/"B站"/"小红书"/"知乎"
+2.【爆款二创】10条,把热点改编成该博主能直接拍的二创内容。每条:
+  - title:二创标题(你的改编)
+  - sourceTitle:来源热榜的原始标题(必须与热榜中某条标题一致,用于匹配原链接)
+  - angle:改编角度
+  - keywords:2-3个关键词
+  - reason:为什么值得二创
+  - script:30-60字口播文案,有活人感
+  - platform:来源平台
+3.【英语学习】5句日常生活中妈妈教孩子时常用的英语口语,简单实用,适合亲子场景,不要太难。
 
 严格只返回一个JSON对象,不要任何解释文字、不要markdown代码块标记。JSON结构:
-{"viralVideos":[{"title":"视频标题","keywords":["关键词1","关键词2"],"content":"中心内容(2-3句话概括视频讲了什么)","platform":"抖音","viralReason":"爆火原因(为什么这条能火,1-2句话)"}],"recreations":[{"title":"二创标题","angle":"改编角度(怎么改成该博主能拍的内容)","keywords":["关键词1","关键词2"],"reason":"为什么值得二创","script":"二创文案(30-60字口播稿,有活人感)","platform":"抖音","url":""}],"dailyInspirations":[{"time":"早晨","theme":"主题","content":"大致内容描述"}],"englishSentences":[{"en":"English sentence","zh":"中文翻译"}]}"""
+{{"viralVideos":[{{"title":"热榜原始标题(不改写)","keywords":["关键词1","关键词2"],"content":"中心内容","platform":"抖音","viralReason":"爆火原因"}}],"recreations":[{{"title":"二创标题","sourceTitle":"来源热榜原始标题","angle":"改编角度","keywords":["关键词1","关键词2"],"reason":"为什么值得二创","script":"二创文案","platform":"抖音"}}],"englishSentences":[{{"en":"English sentence","zh":"中文翻译"}}]}}"""
 
-    user_msg = "今日热榜:\n" + hot_text
+    user_msg = "今日热榜({}):\n".format(date_str) + hot_text
     body = json.dumps({
         "model": MODEL,
         "messages": [
@@ -134,6 +175,7 @@ def call_kimi(profile_str, hot_text):
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
+    print("  调用Kimi生成内容(超时180s)...")
     with urllib.request.urlopen(req, timeout=180) as r:
         resp = json.loads(r.read().decode("utf-8"))
     content = resp["choices"][0]["message"]["content"]
@@ -142,47 +184,59 @@ def call_kimi(profile_str, hot_text):
     content = re.sub(r"\s*```$", "", content.strip())
     return json.loads(content)
 
-# ---------- 生成AI资讯(独立Kimi调用) ----------
-def generate_ai_news(hot):
-    """生成20条AI重要新闻, 翻译成大白话。hot为已抓取的热榜列表(用于参考)。"""
+# ---------- 生成AI资讯(独立Kimi调用,深度解读) ----------
+def generate_ai_news(hot, date_ctx):
+    """生成20条AI重要新闻,深度解读,聚焦普通人能用能用懂的第一手资讯。"""
+    date_str, season = date_ctx
     ai_kw = ["AI", "人工智能", "GPT", "大模型", "ChatGPT", "Claude", "Gemini",
              "OpenAI", "机器学习", "深度学习", "AGI", "Sora", "智能", "算法",
              "机器人", "自动驾驶", "芯片", "英伟达", "NVIDIA", "百度", "文心",
              "通义", "Kimi", "月之暗面", "豆包", "DeepSeek", "算力", "开源",
-             "Llama", "Anthropic", "科技", "数字人", "AIGC", "智能体", "Agent"]
+             "Llama", "Anthropic", "科技", "数字人", "AIGC", "智能体", "Agent",
+             "可灵", "即梦", "通义千问", "智谱", " Manus", "SORA", "视频生成"]
     ai_ref = []
     for h in hot:
         t = h.get("title", "")
         if any(k.lower() in t.lower() for k in ai_kw):
             ai_ref.append("[{}]{}".format(h.get("platform", ""), t))
-    ref_text = "\n".join(ai_ref[:15]) if ai_ref else "(热榜中暂无AI相关内容,请基于近期重要AI动态生成)"
+    ref_text = "\n".join(ai_ref[:15]) if ai_ref else "(热榜中暂无AI相关内容)"
 
-    prompt = """你是AI领域资讯编辑,专门把复杂的AI新闻翻译成普通人(尤其是不懂技术的家长群体)能听懂的大白话。
+    prompt = f"""你是AI领域资深编辑+AI应用教练,专门给不懂技术的普通家长(尤其28-45岁妈妈群体)做第一手AI资讯解读。
+今天是 {date_str}。
 
-请生成今天最重要的20条AI相关新闻和动态,覆盖国内外。要求:
-1. title: 新闻标题(简洁有力,10-20字)
-2. plainText: 大白话解释(就像跟朋友聊天一样说清楚这事儿是什么,2-3句话,绝对不要用专业术语)
-3. why: 为什么重要(跟普通人有什么关系,1-2句话)
+请生成今天最重要的20条AI动态,要求每条都让人觉得"这个我能用上/跟我有关",不要泛泛而谈。每条包含:
+1. title: 标题(简洁有力,12-20字,点明是什么事)
+2. category: 分类,从以下选一个:【技能突破】【应用落地】【国内排名】【国际动态】【教育结合】【生活实用】【行业政策】
+3. plainText: 大白话说清楚这是什么(像跟朋友聊天一样,2-3句话,绝对不用专业术语,谁都能听懂)
+4. howToUse: 具体怎么用/怎么操作(如果这条跟普通人能用上,就写清楚操作步骤或使用场景;如果是行业动态就写"对普通人的影响",1-2句话)
+5. why: 为什么重要/跟妈妈群体有什么关系(1-2句话)
 
-覆盖方向:大模型更新、AI应用落地、AI政策监管、AI教育、AI与就业、AI伦理等。
+覆盖方向(确保每类都有):
+- 【技能突破】AI最新能力突破(新模型/新功能/多模态/视频生成/Agent能力)
+- 【应用落地】普通人怎么用AI(写作业辅导/做课件/做视频/省钱省时间)
+- 【国内排名】国产AI最新排名和动态(豆包/Kimi/文心/通义/DeepSeek谁更强)
+- 【国际动态】OpenAI/Google/Anthropic最新动作
+- 【教育结合】AI怎么帮孩子学习/帮妈妈辅导(重点!)
+- 【生活实用】AI在生活中的具体用法(购物/旅游/健康/做饭)
+- 【行业政策】影响普通人的AI政策
 
 参考今日热榜中的AI相关内容(如有):
-""" + ref_text + """
+{ref_text}
 
 严格只返回一个JSON对象,不要任何解释文字,不要markdown代码块:
-{"aiNews":[{"title":"新闻标题","plainText":"大白话解释","why":"为什么重要"}]}"""
+{{"aiNews":[{{"title":"标题","category":"技能突破","plainText":"大白话解释","howToUse":"怎么用","why":"为什么重要"}}]}}"""
 
     body = json.dumps({
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 1,
-        "max_tokens": 8000
+        "max_tokens": 10000
     }).encode("utf-8")
     req = urllib.request.Request(KIMI_URL, data=body, headers={
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    print("  调用Kimi生成AI资讯(超时180s)...")
+    print("  调用Kimi生成AI资讯(深度解读,超时180s)...")
     with urllib.request.urlopen(req, timeout=180) as r:
         resp = json.loads(r.read().decode("utf-8"))
     content = resp["choices"][0]["message"]["content"]
@@ -193,11 +247,12 @@ def generate_ai_news(hot):
 
 # ---------- 匹配URL(从原始热榜数据中查找) ----------
 def find_url(title, hot_items):
+    """精确匹配 -> 包含匹配,返回热榜中对应条目的url"""
     for h in hot_items:
         if h["title"] == title:
             return h.get("url", "")
     for h in hot_items:
-        if h["title"] in title or title in h["title"]:
+        if title and (h["title"] in title or title in h["title"]):
             return h.get("url", "")
     return ""
 
@@ -225,54 +280,61 @@ def main():
     if not GIST_ID:
         print("ERROR: GIST_ID 未设置"); sys.exit(1)
 
-    # 0. 读取画像
-    print("[0/5] 读取用户画像...")
+    # 0. 日期与季节
+    date_ctx = get_date_context()
+    print("[0/5] {} | {}".format(*date_ctx))
+
+    # 1. 读取画像
+    print("[1/5] 读取用户画像...")
     profile = read_profile_from_gist()
     profile_str = build_profile_str(profile)
     print("  画像: " + profile.get("name", "?") + " / " + profile.get("track", "?"))
 
-    # 1. 抓热榜
-    print("[1/5] 抓取热榜(含知乎)...")
+    # 2. 抓热榜
+    print("[2/5] 抓取热榜(含知乎)...")
     hot = get_hotlist()
-    print("  获取到 {} 条热点".format(len(hot)))
+    print("  共获取 {} 条热点".format(len(hot)))
     hot_text = "\n".join("{}[{}] {}".format(i+1, h["platform"], h["title"]) for i, h in enumerate(hot))
 
-    # 2. 调 Kimi 生成(爆款+二创+灵感+英语)
-    print("[2/5] 调用 Kimi 生成内容...")
-    result = call_kimi(profile_str, hot_text)
+    # 3. 调 Kimi 生成(爆款+二创+英语)
+    print("[3/5] 调用 Kimi 生成内容...")
+    result = call_kimi(profile_str, hot_text, date_ctx)
     videos = result.get("viralVideos", [])
     recr = result.get("recreations", [])
-    inspirations = result.get("dailyInspirations", [])
     eng = result.get("englishSentences", [])
-    print("  生成 {} 条爆款视频, {} 条二创, {} 条灵感, {} 句英语".format(
-        len(videos), len(recr), len(inspirations), len(eng)))
+    print("  生成 {} 条爆款视频, {} 条二创, {} 句英语".format(
+        len(videos), len(recr), len(eng)))
 
-    # 3. 匹配URL
+    # 4. 匹配URL(viralVideos用title精确匹配;recreations用sourceTitle匹配)
     for v in videos:
         if not v.get("url"):
             v["url"] = find_url(v.get("title", ""), hot)
+    matched = 0
     for r in recr:
         if not r.get("url"):
-            r["url"] = find_url(r.get("title", ""), hot)
+            src = r.get("sourceTitle") or r.get("title", "")
+            r["url"] = find_url(src, hot)
+            if r["url"]:
+                matched += 1
+    print("  二创URL匹配: {}/{}".format(matched, len(recr)))
 
-    # 4. 生成AI资讯(独立Kimi调用)
-    print("[3/5] 生成AI资讯(20条,大白话)...")
-    ai_news = generate_ai_news(hot)
+    # 5. 生成AI资讯(独立Kimi调用,深度解读)
+    print("[4/5] 生成AI资讯(20条,深度解读)...")
+    ai_news = generate_ai_news(hot, date_ctx)
     print("  生成 {} 条AI资讯".format(len(ai_news)))
 
-    # 5. 写 Gist
-    print("[4/5] 写入 Gist...")
+    # 6. 写 Gist
+    print("[5/5] 写入 Gist...")
     payload = {
         "date": time.strftime("%Y-%m-%d"),
         "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%S+08:00"),
         "viralVideos": videos,
         "recreations": recr,
-        "dailyInspirations": inspirations,
         "englishSentences": eng,
         "aiNews": ai_news
     }
     write_gist(payload)
-    print("[5/5] === 完成! Gist 已更新 ===")
+    print("=== 完成! Gist 已更新 ===")
 
 if __name__ == "__main__":
     main()
