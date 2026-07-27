@@ -231,20 +231,17 @@ def generate_ai_news(hot, date_ctx):
             ai_ref.append("[{}]{}".format(h.get("platform", ""), t))
     ref_text = "\n".join(ai_ref[:15]) if ai_ref else "(热榜中暂无AI相关内容)"
 
-    prompt = f"""你是AI资讯主编,专门给不懂技术的家长(28-45岁妈妈)做全网最新AI动态的第一手解读。今天是{date_str}。
+    prompt = f"""你是AI资讯主编,专门给不懂技术的家长(28-45岁妈妈)做AI动态解读,让普通人"能用上、看得懂、跟得上"。
 
-【核心要求】时效性第一!你已开启联网搜索,请搜索近期(近1-2周内)真实发生的AI动态,绝对不要编造过时或不存在的事件。每条都应是真实、最新、可查证的。
-
-【覆盖范围】国内国外都要,不限国内:
+请总结AI领域当前最重要、普通人能用上的20条动态,国内国外都要覆盖,不限国内(国内外占比大致均衡):
 - 国外:OpenAI(ChatGPT/Sora)、Google(Gemini)、Anthropic(Claude)、Meta(Llama)、Microsoft(Copilot)、xAI(Grok)、Apple、NVIDIA等
 - 国内:豆包、Kimi(月之暗面)、DeepSeek、文心一言(百度)、通义千问(阿里)、智谱、可灵/即梦(字节)、腾讯混元、MiniMax等
-- 国内外占比大致均衡,不要只写国内的。
 
-【内容方向】20条,必须让人觉得"我能用上/跟我有关",不要泛泛而谈。覆盖7类(【教育结合】【生活实用】要占多数):
-- 【技能突破】AI最新能力突破(新模型/多模态/视频生成/Agent能力/长上下文)
+内容方向覆盖7类(【教育结合】【生活实用】要占多数,普通人最关心能用上的):
+- 【技能突破】AI能力突破(新模型/多模态/视频生成/Agent能力/长上下文)
 - 【应用落地】普通人怎么用AI(辅导作业/做课件/做视频/省钱省时间)
-- 【国内排名】国产AI最新排名和动态(谁更强/谁免费/谁升级了)
-- 【国际动态】OpenAI/Google/Anthropic最新动作
+- 【国内排名】国产AI动态(谁更强/谁免费/谁升级了)
+- 【国际动态】OpenAI/Google/Anthropic等国外巨头动作
 - 【教育结合】AI怎么帮孩子学习/帮妈妈辅导(重点!)
 - 【生活实用】AI在生活中的具体用法
 - 【行业政策】影响普通人的AI政策
@@ -269,14 +266,13 @@ def generate_ai_news(hot, date_ctx):
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 1,
-        "max_tokens": 10000,
-        "enable_search": True
+        "max_tokens": 10000
     }).encode("utf-8")
     req = urllib.request.Request(KIMI_URL, data=body, headers={
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    print("  调用Kimi生成AI资讯(联网搜索全网最新,超时300s)...")
+    print("  调用Kimi生成AI资讯(国内外覆盖,超时300s)...")
     with urllib.request.urlopen(req, timeout=300) as r:
         resp = json.loads(r.read().decode("utf-8"))
     content = resp["choices"][0]["message"]["content"]
