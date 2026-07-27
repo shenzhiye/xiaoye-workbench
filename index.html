@@ -493,7 +493,7 @@ function renderViral(){
       <div style="font-size:13px;color:#3a3f30;margin-top:6px"><b>中心内容：</b>${esc(it.content)}</div>
       <div class="note" style="margin:8px 0"><b>爆火原因：</b>${esc(it.viralReason)}</div>
       <div class="platform-btns">
-        <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.url||'').replace(/`/g,'')}\`,\`${(it.title||'').replace(/`/g,'')}\`)">查看原视频</button>
+        <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.url||'').replace(/`/g,'')}\`,\`${(it.searchKeyword||it.title||'').replace(/`/g,'')}\`)">去抖音搜</button>
       </div>
     </div>`;
   });
@@ -546,7 +546,7 @@ function renderRecreate(){
       <div class="note" style="margin:8px 0"><b>理由：</b>${esc(it.reason)}</div>
       <div style="font-size:12.5px;color:#3a3f30;background:rgba(234,243,222,0.4);border-radius:8px;padding:8px 10px;backdrop-filter:blur(4px)"><b>二创文案：</b>${esc(it.script)}</div>
       <div class="platform-btns">
-        <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.url||'').replace(/`/g,'')}\`,\`${title.replace(/`/g,'')}\`)">查看原视频/争议帖</button>
+        <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.url||'').replace(/`/g,'')}\`,\`${(it.searchKeyword||title||'').replace(/`/g,'')}\`)">去抖音搜</button>
       </div>
     </div>`;
   });
@@ -617,6 +617,8 @@ function renderAiNews(){
             <span style="font-size:11px;background:rgba(94,122,58,0.14);color:var(--olive-d);padding:2px 8px;border-radius:6px;white-space:nowrap;font-weight:600">${esc(cat)}</span>
           </div>
           <div class="ainews-plain">${esc(it.plainText)}</div>
+          ${it.whichAI?`<div style="font-size:12px;color:#5a6b3e;margin-top:5px"><b>涉及AI：</b>${esc(it.whichAI)}${it.pricing?` · <span style="color:var(--olive-d);font-weight:600">${esc(it.pricing)}</span>`:""}</div>`:""}
+          ${it.alternatives?`<div style="font-size:12px;color:#5a6b3e;margin-top:2px"><b>同类对比：</b>${esc(it.alternatives)}</div>`:""}
           ${it.howToUse?`<div style="font-size:12.5px;color:#3a3f30;background:rgba(234,243,222,0.45);border-radius:8px;padding:7px 10px;margin-top:6px"><b>怎么用：</b>${esc(it.howToUse)}</div>`:""}
           <div class="ainews-why"><b>为什么重要：</b>${esc(it.why)}</div>
         </div>
@@ -895,7 +897,7 @@ async function syncData(){
 function launch(app,kw){
   kw=(kw||"教育 校园 一年级").trim();
   const map={
-    douyin:{scheme:'snssdk1128://',web:'https://www.douyin.com/search/'+encodeURIComponent(kw)},
+    douyin:{scheme:'snssdk1128://search?keyword='+encodeURIComponent(kw),web:'https://www.douyin.com/search/'+encodeURIComponent(kw)},
     bilibili:{scheme:'bilibili://',web:'https://search.bilibili.com/all?keyword='+encodeURIComponent(kw)},
     xhs:{scheme:'xhsdiscover://',web:'https://www.xiaohongshu.com/search_result?keyword='+encodeURIComponent(kw)},
     zhihu:{scheme:'',web:'https://www.zhihu.com/search?type=content&q='+encodeURIComponent(kw)}
