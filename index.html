@@ -494,6 +494,7 @@ function renderViral(){
       <div class="note" style="margin:8px 0"><b>爆火原因：</b>${esc(it.viralReason)}</div>
       <div class="platform-btns">
         <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.url||'').replace(/`/g,'')}\`,\`${(it.searchKeyword||it.title||'').replace(/`/g,'')}\`)">去抖音搜</button>
+        <button class="btn btn-ghost btn-sm" onclick="launch('xhs',\`${(it.searchKeyword||it.title||'').replace(/`/g,'')}\`)">去小红书搜</button>
       </div>
     </div>`;
   });
@@ -547,6 +548,7 @@ function renderRecreate(){
       <div style="font-size:12.5px;color:#3a3f30;background:rgba(234,243,222,0.4);border-radius:8px;padding:8px 10px;backdrop-filter:blur(4px)"><b>二创文案：</b>${esc(it.script)}</div>
       <div class="platform-btns">
         <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.url||'').replace(/`/g,'')}\`,\`${(it.searchKeyword||title||'').replace(/`/g,'')}\`)">去抖音搜</button>
+        <button class="btn btn-ghost btn-sm" onclick="launch('xhs',\`${(it.searchKeyword||title||'').replace(/`/g,'')}\`)">去小红书搜</button>
       </div>
     </div>`;
   });
@@ -899,7 +901,7 @@ function launch(app,kw){
   const map={
     douyin:{scheme:'snssdk1128://search?keyword='+encodeURIComponent(kw),web:'https://www.douyin.com/search/'+encodeURIComponent(kw)},
     bilibili:{scheme:'bilibili://',web:'https://search.bilibili.com/all?keyword='+encodeURIComponent(kw)},
-    xhs:{scheme:'xhsdiscover://',web:'https://www.xiaohongshu.com/search_result?keyword='+encodeURIComponent(kw)},
+    xhs:{scheme:'xhsdiscover://search?keyword='+encodeURIComponent(kw),web:'https://www.xiaohongshu.com/search_result?keyword='+encodeURIComponent(kw)},
     zhihu:{scheme:'',web:'https://www.zhihu.com/search?type=content&q='+encodeURIComponent(kw)}
   };
   const c=map[app];const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
