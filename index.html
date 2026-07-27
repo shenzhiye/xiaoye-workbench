@@ -491,6 +491,7 @@ function renderViral(){
       </div>
       <div style="margin:4px 0">${(it.keywords||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>
       <div style="font-size:13px;color:#3a3f30;margin-top:6px"><b>中心内容：</b>${esc(it.content)}</div>
+      ${it.sourceHot&&it.sourceHot!=='季节延伸'?`<div style="font-size:12px;color:#8a7b4f;margin-top:4px">🔥 <b>基于热点：</b>${esc(it.sourceHot)}</div>`:''}
       <div class="note" style="margin:8px 0"><b>爆火原因：</b>${esc(it.viralReason)}</div>
       <div class="platform-btns">
         <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.url||'').replace(/`/g,'')}\`,\`${(it.searchKeyword||it.title||'').replace(/`/g,'')}\`)">去抖音搜</button>
@@ -546,6 +547,7 @@ function renderRecreate(){
       <div class="kv"><span>改编角度</span><span class="v">${esc(it.angle)}</span></div>
       <div class="note" style="margin:8px 0"><b>理由：</b>${esc(it.reason)}</div>
       <div style="font-size:12.5px;color:#3a3f30;background:rgba(234,243,222,0.4);border-radius:8px;padding:8px 10px;backdrop-filter:blur(4px)"><b>二创文案：</b>${esc(it.script)}</div>
+      ${it.sourceHot&&it.sourceHot!=='季节延伸'?`<div style="font-size:12px;color:#8a7b4f;margin-top:6px">🔥 <b>基于热点：</b>${esc(it.sourceHot)}</div>`:''}
       <div class="platform-btns">
         <button class="btn ${ptag.btnCls}" onclick="launchViral('${esc(it.platform||'抖音')}',\`${(it.url||'').replace(/`/g,'')}\`,\`${(it.searchKeyword||title||'').replace(/`/g,'')}\`)">去抖音搜</button>
         <button class="btn btn-ghost btn-sm" onclick="launch('xhs',\`${(it.searchKeyword||title||'').replace(/`/g,'')}\`)">去小红书搜</button>
