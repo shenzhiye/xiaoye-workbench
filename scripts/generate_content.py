@@ -96,77 +96,62 @@ def fetch_json(url, timeout=12):
         return json.loads(r.read().decode("utf-8"))
 
 def get_hotlist():
-    """抓取热榜。知乎用官方API(稳定有url),其他平台用vvhan(备选)。失败返回空列表。"""
+    """抓取60s.viki.moe的抖音热榜+微博热搜+头条热点(真实近2天热点,带链接)。失败返回空列表。"""
     items = []
-
-    # 1. 知乎热榜(官方API,稳定,有url)
-    try:
-        req = urllib.request.Request('https://api.zhihu.com/topstory/hot-lists/total?limit=15',
-            headers={'User-Agent':'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=15) as r:
-            d = json.loads(r.read().decode('utf-8'))
-        arr = d.get('data', [])
-        cnt = 0
-        for it in arr[:15]:
-            tgt = it.get('target', {})
-            t = tgt.get('title', '')
-            qid = tgt.get('id') or it.get('id')
-            u = tgt.get('url') or ('https://www.zhihu.com/question/'+str(qid) if qid else '')
-            if t:
-                items.append({'platform':'知乎', 'title': t, 'url': u})
-                cnt += 1
-        print('  [知乎] 成功抓取 {} 条'.format(cnt))
-    except Exception as e:
-        print('  [知乎] 抓取失败: {}'.format(str(e)[:50]))
-
-    # 2. vvhan多平台(备选,可能失效)
-    vvhan_sources = [
-        ('抖音',   'https://api.vvhan.com/api/hotlist/douyinHot'),
-        ('B站',    'https://api.vvhan.com/api/hotlist/biliRD'),
-        ('小红书', 'https://api.vvhan.com/api/hotlist/xhsHot'),
-        ('微博',   'https://api.vvhan.com/api/hotlist/wbHot'),
+    sources = [
+        ('抖音', 'https://60s.viki.moe/v2/douyin'),
+        ('微博', 'https://60s.viki.moe/v2/weibo'),
+        ('头条', 'https://60s.viki.moe/v2/toutiao'),
     ]
-    for platform, url in vvhan_sources:
+    for platform, url in sources:
         try:
-            data = fetch_json(url)
-            arr = data.get('data', []) if isinstance(data, dict) else data
-            tag = platform
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                d = json.loads(r.read().decode('utf-8'))
+            arr = d.get('data', [])
+            if not isinstance(arr, list):
+                arr = arr.get('list', []) if isinstance(arr, dict) else []
             cnt = 0
-            for it in arr[:10]:
-                t = it.get('title') or it.get('name') or ''
-                u = it.get('url') or it.get('link') or ''
+            for it in arr[:20]:
+                t = it.get('title', '')
+                u = it.get('link', it.get('url', ''))
+                hot_val = it.get('hot_value', it.get('hot', ''))
                 if t:
-                    items.append({'platform': tag, 'title': t, 'url': u})
+                    items.append({'platform': platform, 'title': t, 'url': u, 'hot': str(hot_val)})
                     cnt += 1
             print('  [{}] 成功抓取 {} 条'.format(platform, cnt))
-            if len(items) >= 30:
-                break
         except Exception as e:
             print('  [{}] 抓取失败: {}'.format(platform, str(e)[:50]))
             continue
 
     if not items:
         print("  所有热榜源失败,将让Kimi基于当前季节自行生成选题")
-    return items[:30]
+    return items
 
 # ---------- 调 Kimi 生成 ----------
 def call_kimi(profile_str, hot_text, date_ctx):
     date_str, season = date_ctx
     if hot_text.strip():
-        hot_instr = "以下是今日多平台热榜,仅作灵感参考。如果某条与教育/亲子/孩子学习相关,可借鉴其角度融入选题;社会热点(明星/科技/国际新闻等)与你赛道无关,忽略即可。选题本身不要依赖热榜,要基于你的画像和关键词自行生成。"
+        hot_instr = """以下是今日多平台真实热榜(抖音/微博/头条,近2天热点)。你必须基于这些真实热点来创作选题:
+- 从热榜中挑选与教育/亲子/孩子学习生活/家庭相关的热点(哪怕只有一点关联也可以借题发挥)
+- 把这些热点改编成符合你赛道的抖音教育选题
+- 如果直接相关的热点不够10条,可以基于热点反映的社会趋势/情绪/季节话题延伸创作,但每条都要标注灵感来源(来自哪个热点)
+- 每条选题的sourceHot字段必须填来源热点标题(从上面热榜中选最接近的一条),如果是纯季节延伸填"季节延伸"
+- 绝对不要凭空围绕某个固定主题(如只写暑假)生成10条,每条都要与当日真实热点有关联"""
     else:
-        hot_instr = "今日热榜未抓取到。请直接基于当前季节和目标人群最关心的话题生成选题。"
+        hot_instr = "今日热榜未抓取到。请基于当前季节和目标人群最关心的话题生成选题,sourceHot填'季节延伸'。"
     sys_prompt = profile_str + "\n\n" + f"""【重要】今天是 {date_str},处于{season}。生成内容必须与当前时间/季节匹配,绝对不要出现与当前季节矛盾的场景(例如暑假期间不要出现"期末复习""考试")。
 
-{hot_instr},结合上述画像,生成三份内容:
+{hot_instr}
 
-1.【爆款视频】生成10条当前最适合该博主在抖音拍的爆款选题(不依赖外部热榜,基于画像+关键词+当前季节直接生成)。内容方向必须覆盖:
+结合上述画像,生成三份内容:
+
+1.【爆款视频】生成10条基于今日真实热点改编的抖音教育赛道选题。内容方向必须覆盖:
   - 低年级学习方法(数学思维/识字/计算/背单词技巧)
   - 陪孩子写作业(高效陪写/不吼不叫/时间管理)
   - 生活习惯培养(作息/自理/专注力/手机管理)
   - 情绪疏导(孩子哭闹/厌学/亲子冲突化解)
   - 亲子日常(亲子关系/家庭氛围/陪伴妙招)
-  - 当前季节相关(如暑假:暑假学习计划/弯道超车/幼小衔接暑假准备)
   每条字段:
   - title:选题标题(像真实抖音爆款标题,有吸引力,15-25字)
   - keywords:2-3个关键词
@@ -174,6 +159,7 @@ def call_kimi(profile_str, hot_text, date_ctx):
   - platform:固定"抖音"
   - viralReason:为什么会火(1-2句)
   - searchKeyword:抖音搜索关键词(3-6字,用于在抖音搜到真实同类视频)
+  - sourceHot:来源热点标题(从热榜中选最接近的一条原标题;纯季节延伸填"季节延伸")
 2.【爆款二创】10条,把上述选题方向改编成该博主能直接拍的具体二创内容。每条:
   - title:二创标题(你的改编)
   - angle:改编角度(怎么改/跟原选题的区别)
@@ -182,11 +168,12 @@ def call_kimi(profile_str, hot_text, date_ctx):
   - script:30-60字口播文案(有活人感,像妈妈在说话,不要说教)
   - platform:"抖音"
   - searchKeyword:抖音搜索关键词(3-6字)
+  - sourceHot:来源热点标题(同上)
   - sourceTitle:如果借鉴了热榜某条就写原标题(用于匹配原链接),没有就留空字符串""
 3.【英语学习】5句日常生活中妈妈教孩子时常用的英语口语,简单实用,适合亲子场景,不要太难。
 
 严格只返回一个JSON对象,不要任何解释文字、不要markdown代码块标记。JSON结构:
-{{"viralVideos":[{{"title":"选题标题","keywords":["关键词1","关键词2"],"content":"中心内容","platform":"抖音","viralReason":"爆火原因","searchKeyword":"搜索词"}}],"recreations":[{{"title":"二创标题","angle":"改编角度","keywords":["关键词1","关键词2"],"reason":"为什么值得二创","script":"二创文案","platform":"抖音","searchKeyword":"搜索词","sourceTitle":""}}],"englishSentences":[{{"en":"English sentence","zh":"中文翻译"}}]}}"""
+{{"viralVideos":[{{"title":"选题标题","keywords":["关键词1","关键词2"],"content":"中心内容","platform":"抖音","viralReason":"爆火原因","searchKeyword":"搜索词","sourceHot":"来源热点"}}],"recreations":[{{"title":"二创标题","angle":"改编角度","keywords":["关键词1","关键词2"],"reason":"为什么值得二创","script":"二创文案","platform":"抖音","searchKeyword":"搜索词","sourceHot":"来源热点","sourceTitle":""}}],"englishSentences":[{{"en":"English sentence","zh":"中文翻译"}}]}}"""
 
     if hot_text.strip():
         user_msg = "今日热榜({}):\n".format(date_str) + hot_text
@@ -383,14 +370,14 @@ def main():
     print("  生成 {} 条爆款视频, {} 条二创, {} 句英语".format(
         len(videos), len(recr), len(eng)))
 
-    # 4. 匹配URL(viralVideos用title精确匹配;recreations用sourceTitle匹配)
+    # 4. 匹配URL(用sourceHot/sourceTitle匹配热榜原始链接)
     for v in videos:
         if not v.get("url"):
-            v["url"] = find_url(v.get("title", ""), hot)
+            v["url"] = find_url(v.get("sourceHot", ""), hot)
     matched = 0
     for r in recr:
         if not r.get("url"):
-            src = r.get("sourceTitle") or r.get("title", "")
+            src = r.get("sourceTitle") or r.get("sourceHot") or r.get("title", "")
             r["url"] = find_url(src, hot)
             if r["url"]:
                 matched += 1
