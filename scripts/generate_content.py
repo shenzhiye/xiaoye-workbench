@@ -205,15 +205,18 @@ def call_kimi(profile_str, hot_text, date_ctx):
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    print("  调用Kimi生成内容(超时240s,最多重试2次)...")
+    print("  调用Kimi生成内容(超时360s,最多重试2次)...")
     for attempt in range(2):
-        with urllib.request.urlopen(req, timeout=240) as r:
-            resp = json.loads(r.read().decode("utf-8"))
-        content = resp["choices"][0]["message"]["content"]
-        result = _parse_json_safe(content)
-        if result is not None:
-            return result
-        print("  第{}次JSON解析失败,{}".format(attempt+1, "重试..." if attempt==0 else "返回空兜底"))
+        try:
+            with urllib.request.urlopen(req, timeout=360) as r:
+                resp = json.loads(r.read().decode("utf-8"))
+            content = resp["choices"][0]["message"]["content"]
+            result = _parse_json_safe(content)
+            if result is not None:
+                return result
+            print("  第{}次JSON解析失败,{}".format(attempt+1, "重试..." if attempt==0 else "返回空兜底"))
+        except Exception as e:
+            print("  第{}次调用失败({}),{}".format(attempt+1, str(e)[:50], "重试..." if attempt==0 else "返回空兜底"))
     return {"viralVideos": [], "recreations": [], "englishSentences": []}
 
 # ---------- 生成AI资讯(分2次调用,每次10条,合并20条,国内外都覆盖) ----------
@@ -280,13 +283,16 @@ def _call_kimi_news(prompt, label, timeout=300):
     })
     for attempt in range(2):
         print("  调用Kimi生成AI资讯[{}](超时{}s,第{}次)...".format(label, timeout, attempt+1))
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            resp = json.loads(r.read().decode("utf-8"))
-        content = resp["choices"][0]["message"]["content"]
-        result = _parse_json_safe(content)
-        if result is not None:
-            return result.get("aiNews", [])
-        print("  [{}]第{}次JSON解析失败,{}".format(label, attempt+1, "重试..." if attempt==0 else "返回空"))
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                resp = json.loads(r.read().decode("utf-8"))
+            content = resp["choices"][0]["message"]["content"]
+            result = _parse_json_safe(content)
+            if result is not None:
+                return result.get("aiNews", [])
+            print("  [{}]第{}次JSON解析失败,{}".format(label, attempt+1, "重试..." if attempt==0 else "返回空"))
+        except Exception as e:
+            print("  [{}]第{}次调用失败({}),{}".format(label, attempt+1, str(e)[:50], "重试..." if attempt==0 else "返回空"))
     return []
 
 def generate_ai_news(hot, date_ctx):
