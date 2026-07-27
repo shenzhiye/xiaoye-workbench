@@ -124,25 +124,20 @@ def get_hotlist():
             print("  [{}] 抓取失败: {}".format(platform, str(e)[:50]))
             continue
     if not items:
-        print("  所有热榜源失败,使用兜底数据")
-        items = [
-            {"platform": "抖音",   "title": "暑假怎么给孩子安排学习和玩耍",     "url": ""},
-            {"platform": "抖音",   "title": "一二年级数学思维怎么练",          "url": ""},
-            {"platform": "小红书", "title": "暑假亲子陪伴不费妈的妙招",        "url": ""},
-            {"platform": "B站",    "title": "英语启蒙每天15分钟怎么坚持",      "url": ""},
-            {"platform": "知乎",   "title": "一年级暑假要不要报辅导班",        "url": ""},
-            {"platform": "小红书", "title": "背单词不枯燥的方法",            "url": ""},
-            {"platform": "抖音",   "title": "幼小衔接暑假冲刺清单",           "url": ""},
-            {"platform": "B站",    "title": "计算粗心老出错怎么练",           "url": ""},
-        ]
+        print("  所有热榜源失败,将让Kimi基于当前季节自行生成选题")
+        return []
     return items[:30]
 
 # ---------- 调 Kimi 生成 ----------
 def call_kimi(profile_str, hot_text, date_ctx):
     date_str, season = date_ctx
+    if hot_text.strip():
+        hot_instr = "你现在收到一份今日多平台实时热榜(含抖音/B站/小红书/知乎)。请严格基于这些热点(不要凭空编造热榜里没有的内容)"
+    else:
+        hot_instr = "今日热榜抓取失败。请基于当前日期和季节状态,结合目标人群当前最关心的话题,自行生成当前最适合该博主拍摄的选题(例如暑假期间:暑假学习计划/弯道超车/亲子旅行/幼小衔接暑期准备/亲子陪伴妙招等;期末季:期末复习/考前冲刺;开学季:收心/新学期准备)"
     sys_prompt = profile_str + "\n\n" + f"""【重要】今天是 {date_str},处于{season}。生成内容必须与当前时间/季节匹配,绝对不要出现与当前季节矛盾的场景(例如暑假期间不要出现"期末复习""考试")。
 
-你现在收到一份今日多平台实时热榜(含抖音/B站/小红书/知乎)。请严格基于这些热点(不要凭空编造热榜里没有的内容),结合上述画像,生成三份内容:
+{hot_instr},结合上述画像,生成三份内容:
 
 1.【爆款视频】从热榜中挑选10条最适合该画像赛道和目标人群的视频。要求:
   - title字段直接用热榜中的原始标题,不要改写(这样后面才能匹配到原链接)
@@ -161,7 +156,10 @@ def call_kimi(profile_str, hot_text, date_ctx):
 严格只返回一个JSON对象,不要任何解释文字、不要markdown代码块标记。JSON结构:
 {{"viralVideos":[{{"title":"热榜原始标题(不改写)","keywords":["关键词1","关键词2"],"content":"中心内容","platform":"抖音","viralReason":"爆火原因"}}],"recreations":[{{"title":"二创标题","sourceTitle":"来源热榜原始标题","angle":"改编角度","keywords":["关键词1","关键词2"],"reason":"为什么值得二创","script":"二创文案","platform":"抖音"}}],"englishSentences":[{{"en":"English sentence","zh":"中文翻译"}}]}}"""
 
-    user_msg = "今日热榜({}):\n".format(date_str) + hot_text
+    if hot_text.strip():
+        user_msg = "今日热榜({}):\n".format(date_str) + hot_text
+    else:
+        user_msg = "（今日热榜未抓取到。今天是{}，{}。请按上述要求自行生成适合当前季节的选题。）".format(date_str, season)
     body = json.dumps({
         "model": MODEL,
         "messages": [
@@ -175,8 +173,8 @@ def call_kimi(profile_str, hot_text, date_ctx):
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    print("  调用Kimi生成内容(超时180s)...")
-    with urllib.request.urlopen(req, timeout=180) as r:
+    print("  调用Kimi生成内容(超时240s)...")
+    with urllib.request.urlopen(req, timeout=240) as r:
         resp = json.loads(r.read().decode("utf-8"))
     content = resp["choices"][0]["message"]["content"]
     # 兜底: 去掉可能的 markdown 代码块标记
@@ -201,30 +199,20 @@ def generate_ai_news(hot, date_ctx):
             ai_ref.append("[{}]{}".format(h.get("platform", ""), t))
     ref_text = "\n".join(ai_ref[:15]) if ai_ref else "(热榜中暂无AI相关内容)"
 
-    prompt = f"""你是AI领域资深编辑+AI应用教练,专门给不懂技术的普通家长(尤其28-45岁妈妈群体)做第一手AI资讯解读。
-今天是 {date_str}。
+    prompt = f"""你是AI资讯编辑,给不懂技术的家长(28-45岁妈妈)做第一手AI动态解读。今天是{date_str}。
 
-请生成今天最重要的20条AI动态,要求每条都让人觉得"这个我能用上/跟我有关",不要泛泛而谈。每条包含:
-1. title: 标题(简洁有力,12-20字,点明是什么事)
-2. category: 分类,从以下选一个:【技能突破】【应用落地】【国内排名】【国际动态】【教育结合】【生活实用】【行业政策】
-3. plainText: 大白话说清楚这是什么(像跟朋友聊天一样,2-3句话,绝对不用专业术语,谁都能听懂)
-4. howToUse: 具体怎么用/怎么操作(如果这条跟普通人能用上,就写清楚操作步骤或使用场景;如果是行业动态就写"对普通人的影响",1-2句话)
-5. why: 为什么重要/跟妈妈群体有什么关系(1-2句话)
+生成今天最重要的20条AI动态,每条让人觉得"我能用上/跟我有关"。每条字段:
+- title:标题(12-20字)
+- category:从【技能突破】【应用落地】【国内排名】【国际动态】【教育结合】【生活实用】【行业政策】选一个
+- plainText:大白话解释是什么(2-3句,不用术语)
+- howToUse:怎么用/对普通人影响(1-2句)
+- why:跟妈妈群体有什么关系(1句)
 
-覆盖方向(确保每类都有):
-- 【技能突破】AI最新能力突破(新模型/新功能/多模态/视频生成/Agent能力)
-- 【应用落地】普通人怎么用AI(写作业辅导/做课件/做视频/省钱省时间)
-- 【国内排名】国产AI最新排名和动态(豆包/Kimi/文心/通义/DeepSeek谁更强)
-- 【国际动态】OpenAI/Google/Anthropic最新动作
-- 【教育结合】AI怎么帮孩子学习/帮妈妈辅导(重点!)
-- 【生活实用】AI在生活中的具体用法(购物/旅游/健康/做饭)
-- 【行业政策】影响普通人的AI政策
+必须覆盖7类,【教育结合】【生活实用】要占多数(普通人最关心能用上的)。
+参考热榜AI内容:{ref_text}
 
-参考今日热榜中的AI相关内容(如有):
-{ref_text}
-
-严格只返回一个JSON对象,不要任何解释文字,不要markdown代码块:
-{{"aiNews":[{{"title":"标题","category":"技能突破","plainText":"大白话解释","howToUse":"怎么用","why":"为什么重要"}}]}}"""
+只返回JSON,不要解释和代码块:
+{{"aiNews":[{{"title":"","category":"技能突破","plainText":"","howToUse":"","why":""}}]}}"""
 
     body = json.dumps({
         "model": MODEL,
@@ -236,8 +224,8 @@ def generate_ai_news(hot, date_ctx):
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    print("  调用Kimi生成AI资讯(深度解读,超时180s)...")
-    with urllib.request.urlopen(req, timeout=180) as r:
+    print("  调用Kimi生成AI资讯(深度解读,超时300s)...")
+    with urllib.request.urlopen(req, timeout=300) as r:
         resp = json.loads(r.read().decode("utf-8"))
     content = resp["choices"][0]["message"]["content"]
     content = re.sub(r"^```(?:json)?\s*", "", content.strip())
