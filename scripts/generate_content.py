@@ -205,14 +205,16 @@ def call_kimi(profile_str, hot_text, date_ctx):
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    print("  调用Kimi生成内容(超时240s)...")
-    with urllib.request.urlopen(req, timeout=240) as r:
-        resp = json.loads(r.read().decode("utf-8"))
-    content = resp["choices"][0]["message"]["content"]
-    # 兜底: 去掉可能的 markdown 代码块标记
-    content = re.sub(r"^```(?:json)?\s*", "", content.strip())
-    content = re.sub(r"\s*```$", "", content.strip())
-    return json.loads(content)
+    print("  调用Kimi生成内容(超时240s,最多重试2次)...")
+    for attempt in range(2):
+        with urllib.request.urlopen(req, timeout=240) as r:
+            resp = json.loads(r.read().decode("utf-8"))
+        content = resp["choices"][0]["message"]["content"]
+        result = _parse_json_safe(content)
+        if result is not None:
+            return result
+        print("  第{}次JSON解析失败,{}".format(attempt+1, "重试..." if attempt==0 else "返回空兜底"))
+    return {"viralVideos": [], "recreations": [], "englishSentences": []}
 
 # ---------- 生成AI资讯(分2次调用,每次10条,合并20条,国内外都覆盖) ----------
 FIELD_SPEC = """每条字段:
@@ -227,7 +229,42 @@ FIELD_SPEC = """每条字段:
 
 涉及AI技能升级时,说清楚是哪个AI、是否收费、同类AI区别。涉及国外AI时,说清楚国内能不能用、有没有替代品。
 只返回JSON,不要解释和代码块:
-{{"aiNews":[{{"title":"","category":"技能突破","plainText":"","whichAI":"","pricing":"","alternatives":"","howToUse":"","why":""}}]}}"""
+{"aiNews":[{"title":"","category":"技能突破","plainText":"","whichAI":"","pricing":"","alternatives":"","howToUse":"","why":""}]}"""
+
+def _parse_json_safe(content):
+    """容错解析Kimi返回的JSON,处理常见格式问题(中文引号/多余文字/坏逗号)"""
+    content = re.sub(r"^```(?:json)?\s*", "", content.strip())
+    content = re.sub(r"\s*```$", "", content.strip())
+    # 1.直接解析
+    try:
+        return json.loads(content)
+    except Exception:
+        pass
+    # 2.只取第一个{ 到最后一个}
+    m = re.search(r"\{.*\}", content, re.DOTALL)
+    if m:
+        try:
+            return json.loads(m.group(0))
+        except Exception:
+            pass
+    # 3.修复中文引号/尾部多余逗号
+    fixed = content.replace("\u201c", '"').replace("\u201d", '"')
+    fixed = re.sub(r",\s*}", "}", fixed)
+    fixed = re.sub(r",\s*]", "]", fixed)
+    try:
+        return json.loads(fixed)
+    except Exception:
+        pass
+    # 4.再尝试提取{}块
+    if m:
+        fixed2 = m.group(0).replace("\u201c", '"').replace("\u201d", '"')
+        fixed2 = re.sub(r",\s*}", "}", fixed2)
+        fixed2 = re.sub(r",\s*]", "]", fixed2)
+        try:
+            return json.loads(fixed2)
+        except Exception:
+            pass
+    return None
 
 def _call_kimi_news(prompt, label, timeout=300):
     """单次Kimi调用生成AI资讯,返回aiNews列表"""
@@ -241,14 +278,16 @@ def _call_kimi_news(prompt, label, timeout=300):
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    print("  调用Kimi生成AI资讯[{}](超时{}s)...".format(label, timeout))
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        resp = json.loads(r.read().decode("utf-8"))
-    content = resp["choices"][0]["message"]["content"]
-    content = re.sub(r"^```(?:json)?\s*", "", content.strip())
-    content = re.sub(r"\s*```$", "", content.strip())
-    result = json.loads(content)
-    return result.get("aiNews", [])
+    for attempt in range(2):
+        print("  调用Kimi生成AI资讯[{}](超时{}s,第{}次)...".format(label, timeout, attempt+1))
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            resp = json.loads(r.read().decode("utf-8"))
+        content = resp["choices"][0]["message"]["content"]
+        result = _parse_json_safe(content)
+        if result is not None:
+            return result.get("aiNews", [])
+        print("  [{}]第{}次JSON解析失败,{}".format(label, attempt+1, "重试..." if attempt==0 else "返回空"))
+    return []
 
 def generate_ai_news(hot, date_ctx):
     """分2次调用Kimi(每次10条),国内外都覆盖,避免单次生成20条超时。"""
