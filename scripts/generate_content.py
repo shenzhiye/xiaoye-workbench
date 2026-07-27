@@ -179,29 +179,19 @@ def call_kimi(profile_str, hot_text, date_ctx):
         user_msg = "今日热榜({}):\n".format(date_str) + hot_text
     else:
         user_msg = "（今日热榜未抓取到。今天是{}，{}。请按上述要求自行生成适合当前季节的选题。）".format(date_str, season)
-    body = json.dumps({
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": user_msg}
-        ],
-        "temperature": 1,
-        "max_tokens": 16000
-    }).encode("utf-8")
-    req = urllib.request.Request(KIMI_URL, data=body, headers={
-        "Authorization": "Bearer " + KIMI_KEY,
-        "Content-Type": "application/json"
-    })
-    print("  调用Kimi生成内容(超时480s,最多重试2次)...")
+    messages = [
+        {"role": "system", "content": sys_prompt},
+        {"role": "user", "content": user_msg}
+    ]
+    print("  调用Kimi生成内容(streaming模式,最多重试2次)...")
     for attempt in range(2):
         try:
-            with urllib.request.urlopen(req, timeout=480) as r:
-                resp = json.loads(r.read().decode("utf-8"))
-            content = resp["choices"][0]["message"]["content"]
-            result = _parse_json_safe(content)
-            if result is not None:
-                return result
-            print("  第{}次JSON解析失败,{}".format(attempt+1, "重试..." if attempt==0 else "返回空兜底"))
+            content = _call_kimi_stream(messages, max_tokens=16000, timeout=600)
+            if content:
+                result = _parse_json_safe(content)
+                if result is not None:
+                    return result
+            print("  第{}次失败,{}".format(attempt+1, "重试..." if attempt==0 else "返回空兜底"))
         except Exception as e:
             print("  第{}次调用失败({}),{}".format(attempt+1, str(e)[:50], "重试..." if attempt==0 else "返回空兜底"))
     return {"viralVideos": [], "recreations": [], "englishSentences": []}
@@ -220,6 +210,38 @@ FIELD_SPEC = """每条字段:
 涉及AI技能升级时,说清楚是哪个AI、是否收费、同类AI区别。涉及国外AI时,说清楚国内能不能用、有没有替代品。
 只返回JSON,不要解释和代码块:
 {"aiNews":[{"title":"","category":"技能突破","plainText":"","whichAI":"","pricing":"","alternatives":"","howToUse":"","why":""}]}"""
+
+def _call_kimi_stream(messages, max_tokens=16000, timeout=600):
+    """使用streaming模式调用Kimi API(推理模型推理过程中不发数据,streaming避免socket超时)。返回完整content或None。"""
+    body = json.dumps({
+        "model": MODEL,
+        "messages": messages,
+        "temperature": 1,
+        "max_tokens": max_tokens,
+        "stream": True
+    }).encode("utf-8")
+    req = urllib.request.Request(KIMI_URL, data=body, headers={
+        "Authorization": "Bearer " + KIMI_KEY,
+        "Content-Type": "application/json"
+    })
+    parts = []
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        for line in r:
+            line = line.decode("utf-8").strip()
+            if not line.startswith("data: "):
+                continue
+            s = line[6:]
+            if s == "[DONE]":
+                break
+            try:
+                chunk = json.loads(s)
+                delta = chunk.get("choices", [{}])[0].get("delta", {})
+                c = delta.get("content")
+                if c:
+                    parts.append(c)
+            except Exception:
+                continue
+    return "".join(parts) if parts else None
 
 def _parse_json_safe(content):
     """容错解析Kimi返回的JSON,处理常见格式问题(中文引号/多余文字/坏逗号)"""
@@ -257,27 +279,17 @@ def _parse_json_safe(content):
     return None
 
 def _call_kimi_news(prompt, label, timeout=300):
-    """单次Kimi调用生成AI资讯,返回aiNews列表"""
-    body = json.dumps({
-        "model": MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 1,
-        "max_tokens": 8000
-    }).encode("utf-8")
-    req = urllib.request.Request(KIMI_URL, data=body, headers={
-        "Authorization": "Bearer " + KIMI_KEY,
-        "Content-Type": "application/json"
-    })
+    """单次Kimi调用生成AI资讯(streaming模式),返回aiNews列表"""
+    messages = [{"role": "user", "content": prompt}]
     for attempt in range(2):
-        print("  调用Kimi生成AI资讯[{}](超时{}s,第{}次)...".format(label, timeout, attempt+1))
+        print("  调用Kimi生成AI资讯[{}](streaming,第{}次)...".format(label, attempt+1))
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                resp = json.loads(r.read().decode("utf-8"))
-            content = resp["choices"][0]["message"]["content"]
-            result = _parse_json_safe(content)
-            if result is not None:
-                return result.get("aiNews", [])
-            print("  [{}]第{}次JSON解析失败,{}".format(label, attempt+1, "重试..." if attempt==0 else "返回空"))
+            content = _call_kimi_stream(messages, max_tokens=8000, timeout=timeout)
+            if content:
+                result = _parse_json_safe(content)
+                if result is not None:
+                    return result.get("aiNews", [])
+            print("  [{}]第{}次失败,{}".format(label, attempt+1, "重试..." if attempt==0 else "返回空"))
         except Exception as e:
             print("  [{}]第{}次调用失败({}),{}".format(label, attempt+1, str(e)[:50], "重试..." if attempt==0 else "返回空"))
     return []
