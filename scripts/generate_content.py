@@ -153,29 +153,40 @@ def get_hotlist():
 def call_kimi(profile_str, hot_text, date_ctx):
     date_str, season = date_ctx
     if hot_text.strip():
-        hot_instr = "你现在收到一份今日多平台实时热榜(含抖音/B站/小红书/知乎)。请严格基于这些热点(不要凭空编造热榜里没有的内容)"
+        hot_instr = "以下是今日多平台热榜,仅作灵感参考。如果某条与教育/亲子/孩子学习相关,可借鉴其角度融入选题;社会热点(明星/科技/国际新闻等)与你赛道无关,忽略即可。选题本身不要依赖热榜,要基于你的画像和关键词自行生成。"
     else:
-        hot_instr = "今日热榜抓取失败。请基于当前日期和季节状态,结合目标人群当前最关心的话题,自行生成当前最适合该博主拍摄的选题(例如暑假期间:暑假学习计划/弯道超车/亲子旅行/幼小衔接暑期准备/亲子陪伴妙招等;期末季:期末复习/考前冲刺;开学季:收心/新学期准备)"
+        hot_instr = "今日热榜未抓取到。请直接基于当前季节和目标人群最关心的话题生成选题。"
     sys_prompt = profile_str + "\n\n" + f"""【重要】今天是 {date_str},处于{season}。生成内容必须与当前时间/季节匹配,绝对不要出现与当前季节矛盾的场景(例如暑假期间不要出现"期末复习""考试")。
 
 {hot_instr},结合上述画像,生成三份内容:
 
-1.【爆款视频】从热榜中挑选10条最适合该画像赛道和目标人群的视频。要求:
-  - title字段直接用热榜中的原始标题,不要改写(这样后面才能匹配到原链接)
-  - 补充keywords(2-3个)、content(中心内容,2-3句话概括)、viralReason(爆火原因)
-  - platform字段根据热榜来源设为"抖音"/"B站"/"小红书"/"知乎"
-2.【爆款二创】10条,把热点改编成该博主能直接拍的二创内容。每条:
+1.【爆款视频】生成10条当前最适合该博主在抖音拍的爆款选题(不依赖外部热榜,基于画像+关键词+当前季节直接生成)。内容方向必须覆盖:
+  - 低年级学习方法(数学思维/识字/计算/背单词技巧)
+  - 陪孩子写作业(高效陪写/不吼不叫/时间管理)
+  - 生活习惯培养(作息/自理/专注力/手机管理)
+  - 情绪疏导(孩子哭闹/厌学/亲子冲突化解)
+  - 亲子日常(亲子关系/家庭氛围/陪伴妙招)
+  - 当前季节相关(如暑假:暑假学习计划/弯道超车/幼小衔接暑假准备)
+  每条字段:
+  - title:选题标题(像真实抖音爆款标题,有吸引力,15-25字)
+  - keywords:2-3个关键词
+  - content:中心内容(2-3句概括这条视频拍什么)
+  - platform:固定"抖音"
+  - viralReason:为什么会火(1-2句)
+  - searchKeyword:抖音搜索关键词(3-6字,用于在抖音搜到真实同类视频)
+2.【爆款二创】10条,把上述选题方向改编成该博主能直接拍的具体二创内容。每条:
   - title:二创标题(你的改编)
-  - sourceTitle:来源热榜的原始标题(必须与热榜中某条标题一致,用于匹配原链接)
-  - angle:改编角度
+  - angle:改编角度(怎么改/跟原选题的区别)
   - keywords:2-3个关键词
   - reason:为什么值得二创
-  - script:30-60字口播文案,有活人感
-  - platform:来源平台
+  - script:30-60字口播文案(有活人感,像妈妈在说话,不要说教)
+  - platform:"抖音"
+  - searchKeyword:抖音搜索关键词(3-6字)
+  - sourceTitle:如果借鉴了热榜某条就写原标题(用于匹配原链接),没有就留空字符串""
 3.【英语学习】5句日常生活中妈妈教孩子时常用的英语口语,简单实用,适合亲子场景,不要太难。
 
 严格只返回一个JSON对象,不要任何解释文字、不要markdown代码块标记。JSON结构:
-{{"viralVideos":[{{"title":"热榜原始标题(不改写)","keywords":["关键词1","关键词2"],"content":"中心内容","platform":"抖音","viralReason":"爆火原因"}}],"recreations":[{{"title":"二创标题","sourceTitle":"来源热榜原始标题","angle":"改编角度","keywords":["关键词1","关键词2"],"reason":"为什么值得二创","script":"二创文案","platform":"抖音"}}],"englishSentences":[{{"en":"English sentence","zh":"中文翻译"}}]}}"""
+{{"viralVideos":[{{"title":"选题标题","keywords":["关键词1","关键词2"],"content":"中心内容","platform":"抖音","viralReason":"爆火原因","searchKeyword":"搜索词"}}],"recreations":[{{"title":"二创标题","angle":"改编角度","keywords":["关键词1","关键词2"],"reason":"为什么值得二创","script":"二创文案","platform":"抖音","searchKeyword":"搜索词","sourceTitle":""}}],"englishSentences":[{{"en":"English sentence","zh":"中文翻译"}}]}}"""
 
     if hot_text.strip():
         user_msg = "今日热榜({}):\n".format(date_str) + hot_text
@@ -226,14 +237,18 @@ def generate_ai_news(hot, date_ctx):
 - title:标题(12-20字)
 - category:从【技能突破】【应用落地】【国内排名】【国际动态】【教育结合】【生活实用】【行业政策】选一个
 - plainText:大白话解释是什么(2-3句,不用术语)
+- whichAI:这条涉及哪个具体AI产品(如豆包/Kimi/ChatGPT/Claude/Gemini/文心/通义/DeepSeek/可灵/即梦/智谱/Sora等)。如果是不涉及具体产品的行业新闻,写"行业动态"
+- pricing:这个AI是否收费。写"免费"或"部分免费"或"付费(月费约X元)"或"免费+付费版"
+- alternatives:同类AI有哪些,核心区别一句话(如"类似还有Kimi(长文本强)、文心(中文好)、DeepSeek(免费且强)")
 - howToUse:怎么用/对普通人影响(1-2句)
 - why:跟妈妈群体有什么关系(1句)
 
+涉及AI技能升级时,必须说清楚:是哪个AI升级了什么、是否收费、同类AI有哪些区别。让读者看完就知道"该用哪个、要不要花钱"。
 必须覆盖7类,【教育结合】【生活实用】要占多数(普通人最关心能用上的)。
 参考热榜AI内容:{ref_text}
 
 只返回JSON,不要解释和代码块:
-{{"aiNews":[{{"title":"","category":"技能突破","plainText":"","howToUse":"","why":""}}]}}"""
+{{"aiNews":[{{"title":"","category":"技能突破","plainText":"","whichAI":"","pricing":"","alternatives":"","howToUse":"","why":""}}]}}"""
 
     body = json.dumps({
         "model": MODEL,
