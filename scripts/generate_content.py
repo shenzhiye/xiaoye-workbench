@@ -272,8 +272,8 @@ def generate_ai_news(hot, date_ctx):
         "Authorization": "Bearer " + KIMI_KEY,
         "Content-Type": "application/json"
     })
-    print("  调用Kimi生成AI资讯(国内外覆盖,超时300s)...")
-    with urllib.request.urlopen(req, timeout=300) as r:
+    print("  调用Kimi生成AI资讯(国内外覆盖,超时420s)...")
+    with urllib.request.urlopen(req, timeout=420) as r:
         resp = json.loads(r.read().decode("utf-8"))
     content = resp["choices"][0]["message"]["content"]
     content = re.sub(r"^```(?:json)?\s*", "", content.strip())
@@ -354,10 +354,14 @@ def main():
                 matched += 1
     print("  二创URL匹配: {}/{}".format(matched, len(recr)))
 
-    # 5. 生成AI资讯(独立Kimi调用,深度解读)
-    print("[4/5] 生成AI资讯(20条,深度解读)...")
-    ai_news = generate_ai_news(hot, date_ctx)
-    print("  生成 {} 条AI资讯".format(len(ai_news)))
+    # 5. 生成AI资讯(独立Kimi调用,深度解读) - 失败不中断流程
+    print("[4/5] 生成AI资讯(20条,国内外覆盖)...")
+    try:
+        ai_news = generate_ai_news(hot, date_ctx)
+        print("  生成 {} 条AI资讯".format(len(ai_news)))
+    except Exception as e:
+        print("  AI资讯生成失败(不影响其他内容): {}".format(str(e)[:80]))
+        ai_news = [{"title":"AI资讯本次生成超时,点刷新重试","category":"行业政策","plainText":"AI资讯内容较多生成耗时较长,偶有超时。爆款视频和二创已正常更新,稍后点右上角刷新即可重新拉取AI资讯。","whichAI":"行业动态","pricing":"免费","alternatives":"","howToUse":"点页面右上角刷新按钮重新拉取","why":"AI资讯覆盖国内外20条,生成需要更长时间"}]
 
     # 6. 写 Gist
     print("[5/5] 写入 Gist...")
